@@ -15,7 +15,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4      - name: Generate resources
+        uses:          uses: actions/checkout@v4
+
+      - name: Generate resources     - name: Generate resources
         shell: bash
         run: |
           set -euo pipefail
