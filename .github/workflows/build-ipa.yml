@@ -1,7 +1,13 @@
-name: Build unsigned IPA
+name: Build Dark Fantasy IPA
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Sources/**'
+      - 'Info.plist'
+      - '.github/workflows/build-ipa.yml'
 
 jobs:
   build:
@@ -9,32 +15,521 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build iPhone app
+        uses: actions/checkout@v4      - name: Generate resources
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
+          mkdir -p build/resources build/icons/Assets.xcassets/AppIcon.appiconset
+
+          python3 <<'PY'
+          import math, random, struct, wave, zlib
+          from pathlib import Path
+
+          out = Path('build/resources')
+          icon = Path('build/icons/Assets.xcassets/AppIcon.appiconset')
+          SR = 44100
+
+          def save_wav(name, samples):
+              peak = max(1e-9, max(abs(x) for x in samples))
+              pcm = b''.join(
+                  struct.pack(
+                      '<h',
+                      int(max(-1, min(1, x * 0.85 / peak)) * 32767)
+                  )
+                  for x in samples
+              )
+              with wave.open(str(out / name), 'wb') as w:
+                  w.setnchannels(1)
+                  w.setsampwidth(2)
+                  w.setframerate(SR)
+                  w.writeframes(pcm)
+
+          def tone(dur, freqs, tau, noise=0.0, seed=1):
+              rng = random.Random(seed)
+              n = int(SR * dur)
+              a = []
+
+              for i in range(n):
+                  t = i / SR
+                  e = math.exp(-t / tau)
+
+                  v = sum(
+                      amp * math.sin(
+                          2 * math.pi * f * t + phase
+                      )
+                      for f, amp, phase in freqs
+                  ) * e
+
+                  v += noise * rng.uniform(-1, 1) * e
+                  a.append(v)
+
+              return a
+
+          rune = tone(
+              0.9,
+              [
+                  (1250, .55, 0),
+                  (1870, .35, .4),
+                  (2630, .22, 1.1),
+                  (95, .16, 0)
+              ],
+              .18
+          )
+
+          base = rune[:]
+
+          for delay, gain in [
+              (0.18, .28),
+              (0.34, .16),
+              (0.50, .09)
+          ]:
+              d = int(delay * SR)
+
+              for i in range(d, len(rune)):
+                  rune[i] += gain * base[i-d]
+
+          save_wav(
+              'rune_tap_ancient_metal.wav',
+              rune
+          )
+
+          save_wav(
+              'card_press_metal.wav',
+              tone(
+                  .22,
+                  [
+                      (980, .55, 0),
+                      (1480, .25, 0)
+                  ],
+                  .045,
+                  .08,
+                  7
+              )
+          )
+
+          save_wav(
+              'menu_open_magic.wav',
+              tone(
+                  .55,
+                  [
+                      (240, .28, 0),
+                      (480, .10, .7)
+                  ],
+                  .35
+              )
+          )
+
+          save_wav(
+              'menu_close_magic.wav',
+              tone(
+                  .42,
+                  [
+                      (330, .22, 0),
+                      (660, .07, 1.2)
+                  ],
+                  .18
+              )
+          )
+
+          n = int(SR * 12)
+          ambient = []
+          rng = random.Random(42)
+          sm = 0.0
+
+          for i in range(n):
+              t = i / SR
+
+              sm += .0022 * (
+                  rng.uniform(-1, 1) - sm
+              )
+
+              v = (
+                  .055 * math.sin(2 * math.pi * 43 * t)
+                  + .035 * math.sin(
+                      2 * math.pi * 64.5 * t + .8
+                  )
+                  + .022 * math.sin(
+                      2 * math.pi * 86 * t + 1.9
+                  )
+                  + .06 * sm
+              )
+
+              ambient.append(
+                  v * (
+                      .65
+                      + .35
+                      * math.sin(
+                          2 * math.pi * t / 12
+                          - math.pi / 2
+                      ) ** 2
+                  )
+              )
+
+          save_wav(
+              'ambient_dark_fantasy_loop.wav',
+              ambient
+          )
+
+          W = H = 1024
+          rgb = bytearray(W * H * 3)
+
+          for y in range(H):
+              for x in range(W):
+                  dx = x - 512
+                  dy = y - 512
+                  d = math.hypot(dx, dy)
+
+                  p = math.exp(
+                      -(d * d)
+                      / (2 * 360 * 360)
+                  )
+
+                  r = int(7 + 24 * p)
+                  g = int(7 + 10 * p)
+                  b = int(11 + 42 * p)
+
+                  if d < 350:
+                      edge = max(
+                          0,
+                          min(
+                              1,
+                              (350 - d) / 95
+                          )
+                      )
+
+                      grain = (
+                          5
+                          * math.sin(
+                              x * .04
+                              + y * .02
+                          )
+                          + 3
+                          * math.sin(
+                              x * .017
+                              - y * .035
+                          )
+                      )
+
+                      v = int(
+                          22
+                          + grain
+                          + 17 * edge
+                      )
+
+                      r = v
+                      g = v
+                      b = v + 7
+
+                  if 300 < d < 314:
+                      s = int(
+                          90
+                          + 65
+                          * (
+                              .5
+                              + .5
+                              * math.cos(
+                                  math.atan2(
+                                      dy,
+                                      dx
+                                  ) + .7
+                              )
+                          )
+                      )
+
+                      r = s
+                      g = s + 3
+                      b = s + 10
+
+                  i = (y * W + x) * 3
+
+                  rgb[i:i+3] = bytes(
+                      (
+                          max(0, min(255, r)),
+                          max(0, min(255, g)),
+                          max(0, min(255, b))
+                      )
+                  )
+
+          def dot(x, y, rad, c, a):
+              for yy in range(
+                  max(0, y-rad),
+                  min(H, y+rad+1)
+              ):
+                  for xx in range(
+                      max(0, x-rad),
+                      min(W, x+rad+1)
+                  ):
+                      if (
+                          (xx-x) ** 2
+                          + (yy-y) ** 2
+                          <= rad * rad
+                      ):
+                          i = (
+                              yy * W + xx
+                          ) * 3
+
+                          for k in range(3):
+                              rgb[i+k] = int(
+                                  rgb[i+k]
+                                  * (1-a)
+                                  + c[k] * a
+                              )
+
+          def line(a, b, rad, c, alpha):
+              x0, y0 = a
+              x1, y1 = b
+
+              steps = max(
+                  abs(x1-x0),
+                  abs(y1-y0),
+                  1
+              )
+
+              for q in range(
+                  steps + 1
+              ):
+                  t = q / steps
+
+                  dot(
+                      round(
+                          x0
+                          + (x1-x0) * t
+                      ),
+                      round(
+                          y0
+                          + (y1-y0) * t
+                      ),
+                      rad,
+                      c,
+                      alpha
+                  )
+
+          purple = (
+              174,
+              132,
+              255
+          )
+
+          for deg in range(360):
+              a = math.radians(deg)
+
+              line(
+                  (
+                      int(
+                          512
+                          + 210
+                          * math.cos(a)
+                      ),
+                      int(
+                          512
+                          + 210
+                          * math.sin(a)
+                      )
+                  ),
+                  (
+                      int(
+                          512
+                          + 210
+                          * math.cos(
+                              a + .02
+                          )
+                      ),
+                      int(
+                          512
+                          + 210
+                          * math.sin(
+                              a + .02
+                          )
+                      )
+                  ),
+                  5,
+                  purple,
+                  .82
+              )
+
+          for a, b in [
+              (
+                  (512,330),
+                  (455,480)
+              ),
+              (
+                  (455,480),
+                  (540,532)
+              ),
+              (
+                  (540,532),
+                  (475,690)
+              ),
+              (
+                  (362,505),
+                  (455,535)
+              ),
+              (
+                  (455,535),
+                  (628,410)
+              ),
+              (
+                  (660,540),
+                  (545,545)
+              ),
+              (
+                  (545,545),
+                  (617,670)
+              )
+          ]:
+              line(
+                  a,
+                  b,
+                  7,
+                  (124,58,237),
+                  .35
+              )
+
+              line(
+                  a,
+                  b,
+                  4,
+                  purple,
+                  .96
+              )
+
+          raw = bytearray()
+
+          for y in range(H):
+              raw += (
+                  b'\x00'
+                  + rgb[
+                      y*W*3:
+                      (y+1)*W*3
+                  ]
+              )
+
+          def chunk(t, d):
+              return (
+                  struct.pack(
+                      '>I',
+                      len(d)
+                  )
+                  + t
+                  + d
+                  + struct.pack(
+                      '>I',
+                      zlib.crc32(
+                          t + d
+                      )
+                      & 0xffffffff
+                  )
+              )
+
+          png = (
+              b'\x89PNG\r\n\x1a\n'
+              + chunk(
+                  b'IHDR',
+                  struct.pack(
+                      '>IIBBBBB',
+                      W,
+                      H,
+                      8,
+                      2,
+                      0,
+                      0,
+                      0
+                  )
+              )
+              + chunk(
+                  b'IDAT',
+                  zlib.compress(
+                      bytes(raw),
+                      9
+                  )
+              )
+              + chunk(
+                  b'IEND',
+                  b''
+              )
+          )
+
+          (
+              icon
+              / 'AppIcon-1024.png'
+          ).write_bytes(png)
+          PY
+
+          for spec in '20 2 40' '20 3 60' '29 2 58' '29 3 87' '40 2 80' '40 3 120' '60 2 120' '60 3 180'; do
+            set -- $spec
+            cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png "build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-$1@$2x.png"
+            sips -z "$3" "$3" "build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-$1@$2x.png" >/dev/null
+          done
+
+          cat > build/icons/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
+          {"images":[
+            {"idiom":"iphone","size":"20x20","scale":"2x","filename":"AppIcon-20@2x.png"},
+            {"idiom":"iphone","size":"20x20","scale":"3x","filename":"AppIcon-20@3x.png"},
+            {"idiom":"iphone","size":"29x29","scale":"2x","filename":"AppIcon-29@2x.png"},
+            {"idiom":"iphone","size":"29x29","scale":"3x","filename":"AppIcon-29@3x.png"},
+            {"idiom":"iphone","size":"40x40","scale":"2x","filename":"AppIcon-40@2x.png"},
+            {"idiom":"iphone","size":"40x40","scale":"3x","filename":"AppIcon-40@3x.png"},
+            {"idiom":"iphone","size":"60x60","scale":"2x","filename":"AppIcon-60@2x.png"},
+            {"idiom":"iphone","size":"60x60","scale":"3x","filename":"AppIcon-60@3x.png"},
+            {"idiom":"ios-marketing","size":"1024x1024","scale":"1x","filename":"AppIcon-1024.png"}
+          ],"info":{"author":"xcode","version":1}}
+          JSON
+
+          echo '{"info":{"author":"xcode","version":1}}' > build/icons/Assets.xcassets/Contents.json      - name: Build iPhone app
+        shell: bash
+        run: |
+          set -euo pipefail
 
           SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          APP="build/Payload/MinimalClicker.app"
 
-          mkdir -p build/Payload/MinimalClicker.app
+          mkdir -p "$APP"
 
-          xcrun swiftc \
-           -parse-as-library \
-            -target arm64-apple-ios15.0 \
-            -sdk "$SDK" \
-            -O \
-            Sources/MinimalClickerApp.swift \
-            -o build/Payload/MinimalClicker.app/MinimalClicker
+          xcrun swiftc -parse-as-library -target arm64-apple-ios15.0 -sdk "$SDK" -O -framework SwiftUI -framework UIKit -framework AVFoundation -framework Combine Sources/MinimalClickerApp.swift -o "$APP/MinimalClicker"
 
-          cp Info.plist build/Payload/MinimalClicker.app/Info.plist
-          chmod +x build/Payload/MinimalClicker.app/MinimalClicker
+          cp Info.plist "$APP/Info.plist"
+          cp build/resources/*.wav "$APP/"
+          chmod +x "$APP/MinimalClicker"
+
+          xcrun actool build/icons/Assets.xcassets --compile "$APP" --platform iphoneos --minimum-deployment-target 15.0 --target-device iphone --app-icon AppIcon --product-type com.apple.product-type.application --output-partial-info-plist build/asset-info.plist --compress-pngs
+
+          python3 <<'PY'
+          import plistlib
+
+          p = 'build/Payload/MinimalClicker.app/Info.plist'
+
+          with open(p, 'rb') as f:
+              base = plistlib.load(f)
+
+          with open(
+              'build/asset-info.plist',
+              'rb'
+          ) as f:
+              base.update(
+                  plistlib.load(f)
+              )
+
+          with open(p, 'wb') as f:
+              plistlib.dump(
+                  base,
+                  f,
+                  fmt=plistlib.FMT_XML,
+                  sort_keys=False
+              )
+          PY
+
+          /usr/bin/plutil -lint "$APP/Info.plist"
+
+          test -f "$APP/MinimalClicker"
+          test -f "$APP/Assets.car"
+          test -f "$APP/rune_tap_ancient_metal.wav"
+          test -f "$APP/ambient_dark_fantasy_loop.wav"
 
           cd build
-          zip -qry MinimalClicker-unsigned.ipa Payload
 
-      - name: Upload IPA
+          zip -qry MinimalClicker-DarkFantasy-unsigned.ipa Payload      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: MinimalClicker-unsigned-ipa
-          path: build/MinimalClicker-unsigned.ipa
+          name: MinimalClicker-DarkFantasy-unsigned-ipa
+          path: build/MinimalClicker-DarkFantasy-unsigned.ipa
+          if-no-files-found: error
