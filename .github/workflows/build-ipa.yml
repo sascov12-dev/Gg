@@ -1,0 +1,39 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build iPhone app
+        run: |
+          set -e
+
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+
+          mkdir -p build/Payload/MinimalClicker.app
+
+          xcrun swiftc \
+            -target arm64-apple-ios15.0 \
+            -sdk "$SDK" \
+            -O \
+            Sources/MinimalClickerApp.swift \
+            -o build/Payload/MinimalClicker.app/MinimalClicker
+
+          cp Info.plist build/Payload/MinimalClicker.app/Info.plist
+          chmod +x build/Payload/MinimalClicker.app/MinimalClicker
+
+          cd build
+          zip -qry MinimalClicker-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MinimalClicker-unsigned-ipa
+          path: build/MinimalClicker-unsigned.ipa
