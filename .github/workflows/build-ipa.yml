@@ -3,7 +3,8 @@ name: Build Dark Fantasy IPA
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'Sources/**'
       - 'Info.plist'
@@ -12,297 +13,468 @@ on:
 jobs:
   build:
     runs-on: macos-15
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
-        uses:          uses: actions/checkout@v4
+        uses: actions/checkout@v4
 
-      - name: Generate resources     - name: Generate resources
+      - name: Generate resources
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p build/resources build/icons/Assets.xcassets/AppIcon.appiconset
+
+          mkdir -p build/resources
+          mkdir -p build/icons/Assets.xcassets/AppIcon.appiconset
 
           python3 <<'PY'
-          import math, random, struct, wave, zlib
+          import math
+          import random
+          import struct
+          import wave
+          import zlib
           from pathlib import Path
 
-          out = Path('build/resources')
-          icon = Path('build/icons/Assets.xcassets/AppIcon.appiconset')
+          out = Path("build/resources")
+          icon = Path("build/icons/Assets.xcassets/AppIcon.appiconset")
           SR = 44100
 
           def save_wav(name, samples):
               peak = max(1e-9, max(abs(x) for x in samples))
-              pcm = b''.join(
+
+              pcm = b"".join(
                   struct.pack(
-                      '<h',
-                      int(max(-1, min(1, x * 0.85 / peak)) * 32767)
+                      "<h",
+                      int(
+                          max(
+                              -1,
+                              min(
+                                  1,
+                                  x * 0.85 / peak
+                              )
+                          ) * 32767
+                      )
                   )
                   for x in samples
               )
-              with wave.open(str(out / name), 'wb') as w:
+
+              with wave.open(str(out / name), "wb") as w:
                   w.setnchannels(1)
                   w.setsampwidth(2)
                   w.setframerate(SR)
                   w.writeframes(pcm)
 
-          def tone(dur, freqs, tau, noise=0.0, seed=1):
+          def tone(
+              dur,
+              freqs,
+              tau,
+              noise=0.0,
+              seed=1
+          ):
               rng = random.Random(seed)
               n = int(SR * dur)
-              a = []
+              result = []
 
               for i in range(n):
                   t = i / SR
-                  e = math.exp(-t / tau)
+                  envelope = math.exp(-t / tau)
 
-                  v = sum(
-                      amp * math.sin(
-                          2 * math.pi * f * t + phase
+                  value = sum(
+                      amp
+                      * math.sin(
+                          2 * math.pi * freq * t
+                          + phase
                       )
-                      for f, amp, phase in freqs
-                  ) * e
+                      for freq, amp, phase in freqs
+                  ) * envelope
 
-                  v += noise * rng.uniform(-1, 1) * e
-                  a.append(v)
+                  value += (
+                      noise
+                      * rng.uniform(-1, 1)
+                      * envelope
+                  )
 
-              return a
+                  result.append(value)
 
+              return result
+
+          # Древний металлический звон руны
           rune = tone(
               0.9,
               [
-                  (1250, .55, 0),
-                  (1870, .35, .4),
-                  (2630, .22, 1.1),
-                  (95, .16, 0)
+                  (1250, 0.55, 0),
+                  (1870, 0.35, 0.4),
+                  (2630, 0.22, 1.1),
+                  (95, 0.16, 0)
               ],
-              .18
+              0.18
           )
 
-          base = rune[:]
+          original = rune[:]
 
           for delay, gain in [
-              (0.18, .28),
-              (0.34, .16),
-              (0.50, .09)
+              (0.18, 0.28),
+              (0.34, 0.16),
+              (0.50, 0.09)
           ]:
-              d = int(delay * SR)
+              offset = int(delay * SR)
 
-              for i in range(d, len(rune)):
-                  rune[i] += gain * base[i-d]
+              for i in range(
+                  offset,
+                  len(rune)
+              ):
+                  rune[i] += (
+                      gain
+                      * original[i - offset]
+                  )
 
           save_wav(
-              'rune_tap_ancient_metal.wav',
+              "rune_tap_ancient_metal.wav",
               rune
           )
 
+          # Короткий металлический звук карточки
           save_wav(
-              'card_press_metal.wav',
+              "card_press_metal.wav",
               tone(
-                  .22,
+                  0.22,
                   [
-                      (980, .55, 0),
-                      (1480, .25, 0)
+                      (980, 0.55, 0),
+                      (1480, 0.25, 0)
                   ],
-                  .045,
-                  .08,
+                  0.045,
+                  0.08,
                   7
               )
           )
 
+          # Открытие окна
           save_wav(
-              'menu_open_magic.wav',
+              "menu_open_magic.wav",
               tone(
-                  .55,
+                  0.55,
                   [
-                      (240, .28, 0),
-                      (480, .10, .7)
+                      (240, 0.28, 0),
+                      (480, 0.10, 0.7)
                   ],
-                  .35
+                  0.35
               )
           )
 
+          # Закрытие окна
           save_wav(
-              'menu_close_magic.wav',
+              "menu_close_magic.wav",
               tone(
-                  .42,
+                  0.42,
                   [
-                      (330, .22, 0),
-                      (660, .07, 1.2)
+                      (330, 0.22, 0),
+                      (660, 0.07, 1.2)
                   ],
-                  .18
+                  0.18
               )
           )
 
+          # Фоновый dark-fantasy ambient
           n = int(SR * 12)
           ambient = []
           rng = random.Random(42)
-          sm = 0.0
+          smoothed_noise = 0.0
 
           for i in range(n):
               t = i / SR
 
-              sm += .0022 * (
-                  rng.uniform(-1, 1) - sm
+              smoothed_noise += (
+                  0.0022
+                  * (
+                      rng.uniform(-1, 1)
+                      - smoothed_noise
+                  )
               )
 
-              v = (
-                  .055 * math.sin(2 * math.pi * 43 * t)
-                  + .035 * math.sin(
-                      2 * math.pi * 64.5 * t + .8
+              value = (
+                  0.055
+                  * math.sin(
+                      2 * math.pi * 43 * t
                   )
-                  + .022 * math.sin(
-                      2 * math.pi * 86 * t + 1.9
+                  + 0.035
+                  * math.sin(
+                      2
+                      * math.pi
+                      * 64.5
+                      * t
+                      + 0.8
                   )
-                  + .06 * sm
+                  + 0.022
+                  * math.sin(
+                      2
+                      * math.pi
+                      * 86
+                      * t
+                      + 1.9
+                  )
+                  + 0.06
+                  * smoothed_noise
+              )
+
+              modulation = (
+                  0.65
+                  + 0.35
+                  * math.sin(
+                      2
+                      * math.pi
+                      * t
+                      / 12
+                      - math.pi / 2
+                  ) ** 2
               )
 
               ambient.append(
-                  v * (
-                      .65
-                      + .35
-                      * math.sin(
-                          2 * math.pi * t / 12
-                          - math.pi / 2
-                      ) ** 2
-                  )
+                  value * modulation
               )
 
           save_wav(
-              'ambient_dark_fantasy_loop.wav',
+              "ambient_dark_fantasy_loop.wav",
               ambient
           )
 
-          W = H = 1024
-          rgb = bytearray(W * H * 3)
+          # Иконка приложения 1024x1024
+          W = 1024
+          H = 1024
+
+          rgb = bytearray(
+              W * H * 3
+          )
 
           for y in range(H):
               for x in range(W):
                   dx = x - 512
                   dy = y - 512
-                  d = math.hypot(dx, dy)
 
-                  p = math.exp(
-                      -(d * d)
-                      / (2 * 360 * 360)
+                  distance = math.hypot(
+                      dx,
+                      dy
                   )
 
-                  r = int(7 + 24 * p)
-                  g = int(7 + 10 * p)
-                  b = int(11 + 42 * p)
+                  glow = math.exp(
+                      -(
+                          distance
+                          * distance
+                      )
+                      / (
+                          2
+                          * 360
+                          * 360
+                      )
+                  )
 
-                  if d < 350:
+                  r = int(
+                      7 + 24 * glow
+                  )
+
+                  g = int(
+                      7 + 10 * glow
+                  )
+
+                  b = int(
+                      11 + 42 * glow
+                  )
+
+                  # Каменная центральная печать
+                  if distance < 350:
                       edge = max(
                           0,
                           min(
                               1,
-                              (350 - d) / 95
+                              (
+                                  350
+                                  - distance
+                              )
+                              / 95
                           )
                       )
 
                       grain = (
                           5
                           * math.sin(
-                              x * .04
-                              + y * .02
+                              x * 0.04
+                              + y * 0.02
                           )
                           + 3
                           * math.sin(
-                              x * .017
-                              - y * .035
+                              x * 0.017
+                              - y * 0.035
                           )
                       )
 
-                      v = int(
+                      value = int(
                           22
                           + grain
                           + 17 * edge
                       )
 
-                      r = v
-                      g = v
-                      b = v + 7
+                      r = value
+                      g = value
+                      b = value + 7
 
-                  if 300 < d < 314:
-                      s = int(
+                  # Узкая серебряная окантовка
+                  if (
+                      300
+                      < distance
+                      < 314
+                  ):
+                      silver = int(
                           90
                           + 65
                           * (
-                              .5
-                              + .5
+                              0.5
+                              + 0.5
                               * math.cos(
                                   math.atan2(
                                       dy,
                                       dx
-                                  ) + .7
+                                  )
+                                  + 0.7
                               )
                           )
                       )
 
-                      r = s
-                      g = s + 3
-                      b = s + 10
+                      r = silver
+                      g = silver + 3
+                      b = silver + 10
 
-                  i = (y * W + x) * 3
+                  index = (
+                      y * W + x
+                  ) * 3
 
-                  rgb[i:i+3] = bytes(
+                  rgb[
+                      index:index + 3
+                  ] = bytes(
                       (
-                          max(0, min(255, r)),
-                          max(0, min(255, g)),
-                          max(0, min(255, b))
+                          max(
+                              0,
+                              min(
+                                  255,
+                                  r
+                              )
+                          ),
+                          max(
+                              0,
+                              min(
+                                  255,
+                                  g
+                              )
+                          ),
+                          max(
+                              0,
+                              min(
+                                  255,
+                                  b
+                              )
+                          )
                       )
                   )
 
-          def dot(x, y, rad, c, a):
+          def dot(
+              x,
+              y,
+              radius,
+              color,
+              alpha
+          ):
               for yy in range(
-                  max(0, y-rad),
-                  min(H, y+rad+1)
+                  max(
+                      0,
+                      y - radius
+                  ),
+                  min(
+                      H,
+                      y + radius + 1
+                  )
               ):
                   for xx in range(
-                      max(0, x-rad),
-                      min(W, x+rad+1)
+                      max(
+                          0,
+                          x - radius
+                      ),
+                      min(
+                          W,
+                          x + radius + 1
+                      )
                   ):
                       if (
-                          (xx-x) ** 2
-                          + (yy-y) ** 2
-                          <= rad * rad
+                          (xx - x) ** 2
+                          + (yy - y) ** 2
+                          <= radius * radius
                       ):
-                          i = (
+                          index = (
                               yy * W + xx
                           ) * 3
 
-                          for k in range(3):
-                              rgb[i+k] = int(
-                                  rgb[i+k]
-                                  * (1-a)
-                                  + c[k] * a
+                          for channel in range(3):
+                              rgb[
+                                  index + channel
+                              ] = int(
+                                  rgb[
+                                      index
+                                      + channel
+                                  ]
+                                  * (
+                                      1 - alpha
+                                  )
+                                  + color[
+                                      channel
+                                  ]
+                                  * alpha
                               )
 
-          def line(a, b, rad, c, alpha):
-              x0, y0 = a
-              x1, y1 = b
+          def line(
+              start,
+              end,
+              radius,
+              color,
+              alpha
+          ):
+              x0, y0 = start
+              x1, y1 = end
 
               steps = max(
-                  abs(x1-x0),
-                  abs(y1-y0),
+                  abs(
+                      x1 - x0
+                  ),
+                  abs(
+                      y1 - y0
+                  ),
                   1
               )
 
-              for q in range(
+              for step in range(
                   steps + 1
               ):
-                  t = q / steps
+                  t = (
+                      step / steps
+                  )
+
+                  px = round(
+                      x0
+                      + (
+                          x1 - x0
+                      )
+                      * t
+                  )
+
+                  py = round(
+                      y0
+                      + (
+                          y1 - y0
+                      )
+                      * t
+                  )
 
                   dot(
-                      round(
-                          x0
-                          + (x1-x0) * t
-                      ),
-                      round(
-                          y0
-                          + (y1-y0) * t
-                      ),
-                      rad,
-                      c,
+                      px,
+                      py,
+                      radius,
+                      color,
                       alpha
                   )
 
@@ -312,123 +484,137 @@ jobs:
               255
           )
 
-          for deg in range(360):
-              a = math.radians(deg)
+          # Фиолетовый круг руны
+          previous = None
 
-              line(
-                  (
-                      int(
-                          512
-                          + 210
-                          * math.cos(a)
-                      ),
-                      int(
-                          512
-                          + 210
-                          * math.sin(a)
+          for degree in range(
+              361
+          ):
+              angle = math.radians(
+                  degree
+              )
+
+              point = (
+                  int(
+                      512
+                      + 210
+                      * math.cos(
+                          angle
                       )
                   ),
-                  (
-                      int(
-                          512
-                          + 210
-                          * math.cos(
-                              a + .02
-                          )
-                      ),
-                      int(
-                          512
-                          + 210
-                          * math.sin(
-                              a + .02
-                          )
+                  int(
+                      512
+                      + 210
+                      * math.sin(
+                          angle
                       )
+                  )
+              )
+
+              if previous is not None:
+                  line(
+                      previous,
+                      point,
+                      5,
+                      purple,
+                      0.82
+                  )
+
+              previous = point
+
+          # Оригинальный знак
+          rune_lines = [
+              (
+                  (512, 330),
+                  (455, 480)
+              ),
+              (
+                  (455, 480),
+                  (540, 532)
+              ),
+              (
+                  (540, 532),
+                  (475, 690)
+              ),
+              (
+                  (362, 505),
+                  (455, 535)
+              ),
+              (
+                  (455, 535),
+                  (628, 410)
+              ),
+              (
+                  (660, 540),
+                  (545, 545)
+              ),
+              (
+                  (545, 545),
+                  (617, 670)
+              )
+          ]
+
+          for start, end in rune_lines:
+              line(
+                  start,
+                  end,
+                  8,
+                  (
+                      124,
+                      58,
+                      237
                   ),
-                  5,
-                  purple,
-                  .82
-              )
-
-          for a, b in [
-              (
-                  (512,330),
-                  (455,480)
-              ),
-              (
-                  (455,480),
-                  (540,532)
-              ),
-              (
-                  (540,532),
-                  (475,690)
-              ),
-              (
-                  (362,505),
-                  (455,535)
-              ),
-              (
-                  (455,535),
-                  (628,410)
-              ),
-              (
-                  (660,540),
-                  (545,545)
-              ),
-              (
-                  (545,545),
-                  (617,670)
-              )
-          ]:
-              line(
-                  a,
-                  b,
-                  7,
-                  (124,58,237),
-                  .35
+                  0.32
               )
 
               line(
-                  a,
-                  b,
+                  start,
+                  end,
                   4,
                   purple,
-                  .96
+                  0.96
               )
 
           raw = bytearray()
 
           for y in range(H):
               raw += (
-                  b'\x00'
+                  b"\x00"
                   + rgb[
-                      y*W*3:
-                      (y+1)*W*3
+                      y * W * 3:
+                      (y + 1)
+                      * W
+                      * 3
                   ]
               )
 
-          def chunk(t, d):
+          def chunk(
+              chunk_type,
+              data
+          ):
               return (
                   struct.pack(
-                      '>I',
-                      len(d)
+                      ">I",
+                      len(data)
                   )
-                  + t
-                  + d
+                  + chunk_type
+                  + data
                   + struct.pack(
-                      '>I',
+                      ">I",
                       zlib.crc32(
-                          t + d
+                          chunk_type
+                          + data
                       )
                       & 0xffffffff
                   )
               )
 
           png = (
-              b'\x89PNG\r\n\x1a\n'
+              b"\x89PNG\r\n\x1a\n"
               + chunk(
-                  b'IHDR',
+                  b"IHDR",
                   struct.pack(
-                      '>IIBBBBB',
+                      ">IIBBBBB",
                       W,
                       H,
                       8,
@@ -439,45 +625,134 @@ jobs:
                   )
               )
               + chunk(
-                  b'IDAT',
+                  b"IDAT",
                   zlib.compress(
                       bytes(raw),
                       9
                   )
               )
               + chunk(
-                  b'IEND',
-                  b''
+                  b"IEND",
+                  b""
               )
           )
 
           (
               icon
-              / 'AppIcon-1024.png'
+              / "AppIcon-1024.png"
           ).write_bytes(png)
+
+          print(
+              "Resources generated successfully"
+          )
           PY
 
-          for spec in '20 2 40' '20 3 60' '29 2 58' '29 3 87' '40 2 80' '40 3 120' '60 2 120' '60 3 180'; do
-            set -- $spec
-            cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png "build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-$1@$2x.png"
-            sips -z "$3" "$3" "build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-$1@$2x.png" >/dev/null
-          done
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-20@2x.png
+          sips -z 40 40 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-20@2x.png >/dev/null
+
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-20@3x.png
+          sips -z 60 60 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-20@3x.png >/dev/null
+
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-29@2x.png
+          sips -z 58 58 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-29@2x.png >/dev/null
+
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-29@3x.png
+          sips -z 87 87 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-29@3x.png >/dev/null
+
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-40@2x.png
+          sips -z 80 80 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-40@2x.png >/dev/null
+
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-40@3x.png
+          sips -z 120 120 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-40@3x.png >/dev/null
+
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-60@2x.png
+          sips -z 120 120 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-60@2x.png >/dev/null
+
+          cp build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-60@3x.png
+          sips -z 180 180 build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-60@3x.png >/dev/null
 
           cat > build/icons/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
-          {"images":[
-            {"idiom":"iphone","size":"20x20","scale":"2x","filename":"AppIcon-20@2x.png"},
-            {"idiom":"iphone","size":"20x20","scale":"3x","filename":"AppIcon-20@3x.png"},
-            {"idiom":"iphone","size":"29x29","scale":"2x","filename":"AppIcon-29@2x.png"},
-            {"idiom":"iphone","size":"29x29","scale":"3x","filename":"AppIcon-29@3x.png"},
-            {"idiom":"iphone","size":"40x40","scale":"2x","filename":"AppIcon-40@2x.png"},
-            {"idiom":"iphone","size":"40x40","scale":"3x","filename":"AppIcon-40@3x.png"},
-            {"idiom":"iphone","size":"60x60","scale":"2x","filename":"AppIcon-60@2x.png"},
-            {"idiom":"iphone","size":"60x60","scale":"3x","filename":"AppIcon-60@3x.png"},
-            {"idiom":"ios-marketing","size":"1024x1024","scale":"1x","filename":"AppIcon-1024.png"}
-          ],"info":{"author":"xcode","version":1}}
+          {
+            "images": [
+              {
+                "idiom": "iphone",
+                "size": "20x20",
+                "scale": "2x",
+                "filename": "AppIcon-20@2x.png"
+              },
+              {
+                "idiom": "iphone",
+                "size": "20x20",
+                "scale": "3x",
+                "filename": "AppIcon-20@3x.png"
+              },
+              {
+                "idiom": "iphone",
+                "size": "29x29",
+                "scale": "2x",
+                "filename": "AppIcon-29@2x.png"
+              },
+              {
+                "idiom": "iphone",
+                "size": "29x29",
+                "scale": "3x",
+                "filename": "AppIcon-29@3x.png"
+              },
+              {
+                "idiom": "iphone",
+                "size": "40x40",
+                "scale": "2x",
+                "filename": "AppIcon-40@2x.png"
+              },
+              {
+                "idiom": "iphone",
+                "size": "40x40",
+                "scale": "3x",
+                "filename": "AppIcon-40@3x.png"
+              },
+              {
+                "idiom": "iphone",
+                "size": "60x60",
+                "scale": "2x",
+                "filename": "AppIcon-60@2x.png"
+              },
+              {
+                "idiom": "iphone",
+                "size": "60x60",
+                "scale": "3x",
+                "filename": "AppIcon-60@3x.png"
+              },
+              {
+                "idiom": "ios-marketing",
+                "size": "1024x1024",
+                "scale": "1x",
+                "filename": "AppIcon-1024.png"
+              }
+            ],
+            "info": {
+              "author": "xcode",
+              "version": 1
+            }
+          }
           JSON
 
-          echo '{"info":{"author":"xcode","version":1}}' > build/icons/Assets.xcassets/Contents.json      - name: Build iPhone app
+          cat > build/icons/Assets.xcassets/Contents.json <<'JSON'
+          {
+            "info": {
+              "author": "xcode",
+              "version": 1
+            }
+          }
+          JSON
+
+          test -f build/resources/rune_tap_ancient_metal.wav
+          test -f build/resources/card_press_metal.wav
+          test -f build/resources/menu_open_magic.wav
+          test -f build/resources/menu_close_magic.wav
+          test -f build/resources/ambient_dark_fantasy_loop.wav
+          test -f build/icons/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+
+      - name: Build iPhone app
         shell: bash
         run: |
           set -euo pipefail
@@ -487,33 +762,80 @@ jobs:
 
           mkdir -p "$APP"
 
-          xcrun swiftc -parse-as-library -target arm64-apple-ios15.0 -sdk "$SDK" -O -framework SwiftUI -framework UIKit -framework AVFoundation -framework Combine Sources/MinimalClickerApp.swift -o "$APP/MinimalClicker"
+          xcrun swiftc \
+            -parse-as-library \
+            -target arm64-apple-ios15.0 \
+            -sdk "$SDK" \
+            -O \
+            -framework SwiftUI \
+            -framework UIKit \
+            -framework AVFoundation \
+            -framework Combine \
+            Sources/MinimalClickerApp.swift \
+            -o "$APP/MinimalClicker"
 
           cp Info.plist "$APP/Info.plist"
-          cp build/resources/*.wav "$APP/"
+
+          cp \
+            build/resources/rune_tap_ancient_metal.wav \
+            "$APP/rune_tap_ancient_metal.wav"
+
+          cp \
+            build/resources/card_press_metal.wav \
+            "$APP/card_press_metal.wav"
+
+          cp \
+            build/resources/menu_open_magic.wav \
+            "$APP/menu_open_magic.wav"
+
+          cp \
+            build/resources/menu_close_magic.wav \
+            "$APP/menu_close_magic.wav"
+
+          cp \
+            build/resources/ambient_dark_fantasy_loop.wav \
+            "$APP/ambient_dark_fantasy_loop.wav"
+
           chmod +x "$APP/MinimalClicker"
 
-          xcrun actool build/icons/Assets.xcassets --compile "$APP" --platform iphoneos --minimum-deployment-target 15.0 --target-device iphone --app-icon AppIcon --product-type com.apple.product-type.application --output-partial-info-plist build/asset-info.plist --compress-pngs
+          xcrun actool \
+            build/icons/Assets.xcassets \
+            --compile "$APP" \
+            --platform iphoneos \
+            --minimum-deployment-target 15.0 \
+            --target-device iphone \
+            --app-icon AppIcon \
+            --product-type com.apple.product-type.application \
+            --output-partial-info-plist build/asset-info.plist \
+            --compress-pngs
 
           python3 <<'PY'
           import plistlib
 
-          p = 'build/Payload/MinimalClicker.app/Info.plist'
-
-          with open(p, 'rb') as f:
-              base = plistlib.load(f)
+          path = "build/Payload/MinimalClicker.app/Info.plist"
 
           with open(
-              'build/asset-info.plist',
-              'rb'
+              path,
+              "rb"
           ) as f:
-              base.update(
-                  plistlib.load(f)
-              )
+              info = plistlib.load(f)
 
-          with open(p, 'wb') as f:
+          with open(
+              "build/asset-info.plist",
+              "rb"
+          ) as f:
+              asset_info = plistlib.load(f)
+
+          info.update(
+              asset_info
+          )
+
+          with open(
+              path,
+              "wb"
+          ) as f:
               plistlib.dump(
-                  base,
+                  info,
                   f,
                   fmt=plistlib.FMT_XML,
                   sort_keys=False
@@ -525,13 +847,24 @@ jobs:
           test -f "$APP/MinimalClicker"
           test -f "$APP/Assets.car"
           test -f "$APP/rune_tap_ancient_metal.wav"
+          test -f "$APP/card_press_metal.wav"
+          test -f "$APP/menu_open_magic.wav"
+          test -f "$APP/menu_close_magic.wav"
           test -f "$APP/ambient_dark_fantasy_loop.wav"
 
           cd build
 
-          zip -qry MinimalClicker-DarkFantasy-unsigned.ipa Payload      - name: Upload IPA
+          zip -qry \
+            MinimalClicker-DarkFantasy-unsigned.ipa \
+            Payload
+
+          test -f \
+            MinimalClicker-DarkFantasy-unsigned.ipa
+
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: MinimalClicker-DarkFantasy-unsigned-ipa
           path: build/MinimalClicker-DarkFantasy-unsigned.ipa
           if-no-files-found: error
+          retention-days: 30
