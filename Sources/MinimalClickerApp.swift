@@ -1,5 +1,7 @@
 import SwiftUI
 import UIKit
+import AVFoundation
+import Combine
 
 @main
 struct MinimalClickerApp: App {
@@ -10,82 +12,166 @@ struct MinimalClickerApp: App {
     }
 }
 
+private enum Theme {
+    static let background = Color(red: 0.035, green: 0.035, blue: 0.050)
+    static let panel = Color(red: 0.075, green: 0.075, blue: 0.100)
+    static let stone = Color(red: 0.090, green: 0.090, blue: 0.115)
+    static let stoneLight = Color(red: 0.145, green: 0.145, blue: 0.175)
+    static let silver = Color(red: 0.37, green: 0.39, blue: 0.43)
+    static let silverHighlight = Color(red: 0.76, green: 0.77, blue: 0.81)
+    static let text = Color(red: 0.86, green: 0.86, blue: 0.90)
+    static let secondaryText = Color(red: 0.52, green: 0.52, blue: 0.58)
+    static let purple = Color(red: 0.49, green: 0.23, blue: 0.93)
+    static let purpleDeep = Color(red: 0.30, green: 0.11, blue: 0.58)
+}
+
+final class AudioManager: ObservableObject {
+    private var players: [String: AVAudioPlayer] = [:]
+    private var ambientPlayer: AVAudioPlayer?
+
+    init() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .ambient,
+                mode: .default,
+                options: [.mixWithOthers]
+            )
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            // Если звук не запустится, сама игра всё равно будет работать.
+        }
+    }
+
+    func startAmbient() {
+        guard ambientPlayer == nil else {
+            ambientPlayer?.play()
+            return
+        }
+
+        guard let url = Bundle.main.url(
+            forResource: "ambient_dark_fantasy_loop",
+            withExtension: "wav"
+        ) else { return }
+
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.numberOfLoops = -1
+            player.volume = 0.12
+            player.prepareToPlay()
+            player.play()
+            ambientPlayer = player
+        } catch { }
+    }
+
+    func pauseAmbient() {
+        ambientPlayer?.pause()
+    }
+
+    func playRune() {
+        playEffect(
+            name: "rune_tap_ancient_metal",
+            volume: 0.46
+        )
+    }
+
+    func playCard() {
+        playEffect(
+            name: "card_press_metal",
+            volume: 0.34
+        )
+    }
+
+    func playMenuOpen() {
+        playEffect(
+            name: "menu_open_magic",
+            volume: 0.28
+        )
+    }
+
+    func playMenuClose() {
+        playEffect(
+            name: "menu_close_magic",
+            volume: 0.26
+        )
+    }
+
+    private func playEffect(name: String, volume: Float) {
+        if let cached = players[name] {
+            cached.stop()
+            cached.currentTime = 0
+            cached.volume = volume
+            cached.play()
+            return
+        }
+
+        guard let url = Bundle.main.url(
+            forResource: name,
+            withExtension: "wav"
+        ) else { return }
+
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = volume
+            player.prepareToPlay()
+            players[name] = player
+            player.play()
+        } catch { }
+    }
+}
+
 struct ContentView: View {
     @AppStorage("coins") private var coins: Int = 0
-    @State private var pressed = false
-    @State private var showPlusOne = false
+    @StateObject private var audio = AudioManager()
+    @Environment(\.scenePhase) private var scenePhase
 
-    private let green = Color(red: 0.12, green: 0.68, blue: 0.34)
+    @State private var runeFlash = false
+    @State private var counterPulse = false
+    @State private var gains: [GainEvent] = []
+    @State private var modalTitle: String?
+    @State private var introVisible = false
 
     var body: some View {
         ZStack {
-            Color.white
-                .ignoresSafeArea()
+            FogBackground()
 
-            VStack(spacing: 0) {
-                Text("\(coins) монет")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.black)
-                    .padding(.top, 70)
+            GeometryReader { proxy in
+                let runeSize = min(
+                    280.0,
+                    proxy.size.width * 0.69
+                )
 
-                Spacer()
-
-                ZStack {
-                    if showPlusOne {
-                        Text("+1")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
-                            .foregroundStyle(green)
-                            .offset(y: -150)
-                            .transition(.opacity.combined(with: .scale))
-                    }
-
-                    Button {
-                        tap()
-                    } label: {
-                        Text("ЖМИ")
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .frame(width: 220, height: 220)
-                            .background(green)
-                            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .scaleEffect(pressed ? 0.94 : 1)
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in
-                                withAnimation(.easeOut(duration: 0.07)) { pressed = true }
-                            }
-                            .onEnded { _ in
-                                withAnimation(.spring(response: 0.22, dampingFraction: 0.7)) { pressed = false }
-                            }
+                VStack(spacing: 0) {
+                    CoinPanel(
+                        coins: coins,
+                        pulsing: counterPulse
                     )
-                }
+                    .padding(.top, 18)
+                    .opacity(introVisible ? 1 : 0)
+                    .offset(y: introVisible ? 0 : -18)
 
-                Spacer()
+                    Spacer(minLength: 22)
 
-                Text("Нажимай и собирай монеты")
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom, 38)
-            }
-            .padding(.horizontal, 24)
-        }
-        .preferredColorScheme(.light)
-    }
+                    ZStack {
+                        ForEach(gains) { gain in
+                            FloatingGainView()
+                                .id(gain.id)
+                        }
 
-    private func tap() {
-        coins += 1
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        RuneButton(
+                            size: runeSize,
+                            flash: runeFlash
+                        ) {
+                            runeTapped()
+                        }
+                    }
+                    .opacity(introVisible ? 1 : 0)
+                    .scaleEffect(introVisible ? 1 : 0.92)
 
-        withAnimation(.easeOut(duration: 0.12)) {
-            showPlusOne = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-            withAnimation(.easeOut(duration: 0.15)) {
-                showPlusOne = false
-            }
-        }
-    }
-}
+                    VStack(spacing: 5) {
+                        Text("КОСНИСЬ РУНЫ")
+                            .font(
+                                .system(
+                                    size: 17,
+                                    weight: .semibold,
+                                    design: .serif
+                                )
