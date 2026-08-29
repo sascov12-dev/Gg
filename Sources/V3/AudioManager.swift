@@ -840,21 +840,22 @@ final class AudioManager: NSObject, ObservableObject {
             return
         }
 
-        guard var pool =
-                playerPools[cue],
-              !pool.isEmpty else {
+        var pool =
+            playerPools[cue]
+            ?? []
 
+        if pool.isEmpty {
             preload(
                 cue
             )
 
-            guard let loadedPool =
-                    playerPools[cue],
-                  !loadedPool.isEmpty else {
-                return
-            }
+            pool =
+                playerPools[cue]
+                ?? []
+        }
 
-            pool = loadedPool
+        guard !pool.isEmpty else {
+            return
         }
 
         let currentIndex =
@@ -872,6 +873,7 @@ final class AudioManager: NSObject, ObservableObject {
 
         if let rateRange {
             player.enableRate = true
+
             player.rate =
                 Float.random(
                     in: rateRange
