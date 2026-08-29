@@ -1918,11 +1918,6 @@ private struct MenuMetalButtonStyle:
                     design: .serif
                 )
             )
-            .kerning(
-                emphasized
-                ? 1.1
-                : 0.7
-            )
             .foregroundColor(
                 emphasized
                 ? Color(
