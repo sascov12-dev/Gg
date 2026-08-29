@@ -36,6 +36,7 @@ final class CombatScene: SKScene {
     private let enemyAuraNode = SKNode()
 
     private var hunterSwordNode: SKShapeNode?
+    private var hunterSpriteNode: SKSpriteNode?
 
     // MARK: - Runtime
 
@@ -1101,37 +1102,50 @@ final class CombatScene: SKScene {
     // MARK: - Hunter
 
     private func buildHunter() {
-        hunterNode.removeAllChildren()
+    hunterNode.removeAllChildren()
 
-        if let texture =
-            textureIfAvailable(
-                named:
-                    "hunter_idle_0"
-            ) {
-            let sprite =
-                SKSpriteNode(
-                    texture: texture
-                )
+    hunterSwordNode = nil
+    hunterSpriteNode = nil
 
-            sprite.texture?
-                .filteringMode =
-                .nearest
+    hunterEyesNode.removeAllActions()
+    hunterEyesNode.removeAllChildren()
 
-            sprite.size =
-                CGSize(
-                    width: 128,
-                    height: 128
-                )
+    let frames =
+        HunterSpriteAssets.idleFrames
 
-            hunterNode.addChild(
-                sprite
-            )
-
-            return
-        }
-
+    guard
+        let firstFrame =
+            frames.first
+    else {
         buildHunterPlaceholder()
+        return
     }
+
+    let sprite =
+        SKSpriteNode(
+            texture: firstFrame
+        )
+
+    sprite.texture?
+        .filteringMode =
+        .nearest
+
+    sprite.size =
+        CGSize(
+            width: 128,
+            height: 128
+        )
+
+    sprite.zPosition = 5
+
+    hunterSpriteNode = sprite
+
+    hunterNode.addChild(
+        sprite
+    )
+
+    startHunterIdleAnimation()
+}
 
     private func buildHunterPlaceholder() {
         let cloakPath =
@@ -2080,6 +2094,10 @@ final class CombatScene: SKScene {
                 "attack"
         )
 
+        animateHunterSprite(
+    resolution
+)
+
         animateSword(
             resolution
         )
@@ -2088,6 +2106,113 @@ final class CombatScene: SKScene {
             animateCriticalEyes()
         }
     }
+
+    private func startHunterIdleAnimation() {
+    guard
+        let sprite =
+            hunterSpriteNode
+    else {
+        return
+    }
+
+    let frames =
+        HunterSpriteAssets.idleFrames
+
+    guard !frames.isEmpty else {
+        return
+    }
+
+    sprite.removeAction(
+        forKey: "hunterTexture"
+    )
+
+    sprite.run(
+        .repeatForever(
+            .animate(
+                with: frames,
+                timePerFrame: 0.11,
+                resize: false,
+                restore: false
+            )
+        ),
+        withKey: "hunterTexture"
+    )
+}
+
+private func animateHunterSprite(
+    _ resolution: CombatResolution
+) {
+    guard
+        let sprite =
+            hunterSpriteNode
+    else {
+        return
+    }
+
+    let frames: [SKTexture]
+
+    switch resolution.animation {
+    case .attack1:
+        frames =
+            HunterSpriteAssets
+                .attack1Frames
+
+    case .attack2:
+        frames =
+            HunterSpriteAssets
+                .attack2Frames
+
+    case .attack3:
+        frames =
+            Array(
+                HunterSpriteAssets
+                    .attack1Frames
+                    .reversed()
+            )
+
+    case .strong,
+         .critical:
+        frames =
+            HunterSpriteAssets
+                .strongFrames
+    }
+
+    guard !frames.isEmpty else {
+        startHunterIdleAnimation()
+        return
+    }
+
+    sprite.removeAction(
+        forKey: "hunterTexture"
+    )
+
+    let frameTime =
+        max(
+            0.018,
+            resolution.attackDuration
+            / Double(frames.count)
+        )
+
+    sprite.run(
+        .sequence(
+            [
+                .animate(
+                    with: frames,
+                    timePerFrame: frameTime,
+                    resize: false,
+                    restore: false
+                ),
+                .run {
+                    [weak self] in
+
+                    self?
+                        .startHunterIdleAnimation()
+                }
+            ]
+        ),
+        withKey: "hunterTexture"
+    )
+}
 
     private func animateSword(
         _ resolution: CombatResolution
