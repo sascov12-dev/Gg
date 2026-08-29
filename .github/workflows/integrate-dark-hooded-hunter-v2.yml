@@ -1,0 +1,290 @@
+name: Integrate Dark Hooded Hunter iOS V2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v3-development
+    paths:
+      - '.github/workflows/integrate-dark-hooded-hunter-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout v3-development
+        uses: actions/checkout@v4
+        with:
+          ref: v3-development
+
+      - name: Integrate Dark Hooded Hunter
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("Sources/V3/CombatScene.swift")
+          combat = path.read_text(encoding="utf-8")
+
+          property_line = "    private var hunterSpriteNode: SKSpriteNode?\n"
+          sword_line = "    private var hunterSwordNode: SKShapeNode?\n"
+
+          if property_line not in combat:
+              if sword_line not in combat:
+                  raise SystemExit("Could not find hunterSwordNode property")
+              combat = combat.replace(
+                  sword_line,
+                  sword_line + property_line,
+                  1,
+              )
+
+          new_build = '''    private func buildHunter() {
+              hunterNode.removeAllChildren()
+
+              hunterSwordNode = nil
+              hunterSpriteNode = nil
+
+              hunterEyesNode.removeAllActions()
+              hunterEyesNode.removeAllChildren()
+
+              let frames =
+                  HunterSpriteAssets.idleFrames
+
+              guard
+                  let firstFrame =
+                      frames.first
+              else {
+                  buildHunterPlaceholder()
+                  return
+              }
+
+              let sprite =
+                  SKSpriteNode(
+                      texture: firstFrame
+                  )
+
+              sprite.texture?
+                  .filteringMode =
+                  .nearest
+
+              sprite.size =
+                  CGSize(
+                      width: 128,
+                      height: 128
+                  )
+
+              sprite.zPosition = 5
+
+              hunterSpriteNode = sprite
+
+              hunterNode.addChild(
+                  sprite
+              )
+
+              startHunterIdleAnimation()
+          }
+
+          '''
+
+          build_start = combat.find(
+              "    private func buildHunter() {"
+          )
+          placeholder_start = combat.find(
+              "    private func buildHunterPlaceholder() {",
+              build_start,
+          )
+
+          if build_start < 0 or placeholder_start < 0:
+              raise SystemExit("Could not locate buildHunter block")
+
+          combat = (
+              combat[:build_start]
+              + new_build
+              + combat[placeholder_start:]
+          )
+
+          helpers = '''    private func startHunterIdleAnimation() {
+              guard
+                  let sprite =
+                      hunterSpriteNode
+              else {
+                  return
+              }
+
+              let frames =
+                  HunterSpriteAssets.idleFrames
+
+              guard !frames.isEmpty else {
+                  return
+              }
+
+              sprite.removeAction(
+                  forKey: "hunterTexture"
+              )
+
+              sprite.run(
+                  .repeatForever(
+                      .animate(
+                          with: frames,
+                          timePerFrame: 0.11,
+                          resize: false,
+                          restore: false
+                      )
+                  ),
+                  withKey: "hunterTexture"
+              )
+          }
+
+          private func animateHunterSprite(
+              _ resolution: CombatResolution
+          ) {
+              guard
+                  let sprite =
+                      hunterSpriteNode
+              else {
+                  return
+              }
+
+              let frames: [SKTexture]
+
+              switch resolution.animation {
+              case .attack1:
+                  frames =
+                      HunterSpriteAssets
+                          .attack1Frames
+
+              case .attack2:
+                  frames =
+                      HunterSpriteAssets
+                          .attack2Frames
+
+              case .attack3:
+                  frames =
+                      Array(
+                          HunterSpriteAssets
+                              .attack1Frames
+                              .reversed()
+                      )
+
+              case .strong,
+                   .critical:
+                  frames =
+                      HunterSpriteAssets
+                          .strongFrames
+              }
+
+              guard !frames.isEmpty else {
+                  startHunterIdleAnimation()
+                  return
+              }
+
+              sprite.removeAction(
+                  forKey: "hunterTexture"
+              )
+
+              let frameTime =
+                  max(
+                      0.018,
+                      resolution.attackDuration
+                      / Double(frames.count)
+                  )
+
+              sprite.run(
+                  .sequence(
+                      [
+                          .animate(
+                              with: frames,
+                              timePerFrame: frameTime,
+                              resize: false,
+                              restore: false
+                          ),
+                          .run {
+                              [weak self] in
+
+                              self?
+                                  .startHunterIdleAnimation()
+                          }
+                      ]
+                  ),
+                  withKey: "hunterTexture"
+              )
+          }
+
+          '''
+
+          if "    private func startHunterIdleAnimation() {" not in combat:
+              helper_pos = combat.find(
+                  "    private func animateSword("
+              )
+              if helper_pos < 0:
+                  raise SystemExit("Could not locate animateSword function")
+
+              combat = (
+                  combat[:helper_pos]
+                  + helpers
+                  + combat[helper_pos:]
+              )
+
+          attack_start = combat.find(
+              "    private func animateHunterAttack("
+          )
+          if attack_start < 0:
+              raise SystemExit("Could not locate animateHunterAttack function")
+
+          sprite_call = '''        animateHunterSprite(
+              resolution
+          )
+
+          '''
+
+          if sprite_call not in combat:
+              sword_pos = combat.find(
+                  "        animateSword(",
+                  attack_start,
+              )
+              if sword_pos < 0:
+                  raise SystemExit("Could not locate animateSword call")
+
+              combat = (
+                  combat[:sword_pos]
+                  + sprite_call
+                  + combat[sword_pos:]
+              )
+
+          path.write_text(
+              combat,
+              encoding="utf-8",
+          )
+
+          print("Dark Hooded Hunter integration complete.")
+          print("CombatScene.swift:", path.stat().st_size, "bytes")
+          PY
+
+      - name: Verify integration
+        shell: bash
+        run: |
+          grep -F "private var hunterSpriteNode: SKSpriteNode?" Sources/V3/CombatScene.swift
+          grep -F "HunterSpriteAssets.idleFrames" Sources/V3/CombatScene.swift
+          grep -F "animateHunterSprite(" Sources/V3/CombatScene.swift
+          grep -F "startHunterIdleAnimation()" Sources/V3/CombatScene.swift
+          test -f Sources/V3/HunterSpriteAssets.swift
+
+      - name: Commit integrated hunter
+        shell: bash
+        run: |
+          if git diff --quiet -- Sources/V3/CombatScene.swift; then
+            echo "Hunter integration is already present."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add Sources/V3/CombatScene.swift
+          git commit -m "Integrate Dark Hooded Hunter animations"
+          git push origin HEAD:v3-development
