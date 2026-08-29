@@ -1,4 +1,4 @@
-name: Build The Last Hunter Android APK
+name: Build The Last Hunter Native Android APK
 
 on:
   workflow_dispatch:
@@ -6,113 +6,68 @@ on:
     branches:
       - Unity-android
     paths:
-      - TheLastHunter_Unity_Android.zip
+      - TheLastHunter_Android_Native.zip
       - .github/workflows/build-unity-android.yml
 
 permissions:
   contents: read
 
-env:
-  UNITY_VERSION: 2022.3.62f1
-  PROJECT_DIR: TheLastHunter_Unity_Android
-
 jobs:
-  check-license:
-    name: Check Unity license
-    runs-on: ubuntu-latest
-    outputs:
-      has_license: ${{ steps.check.outputs.has_license }}
-    steps:
-      - name: Check UNITY_LICENSE secret
-        id: check
-        shell: bash
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-        run: |
-          if [ -n "$UNITY_LICENSE" ]; then
-            echo "has_license=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_license=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  activation:
-    name: Create Unity activation file
-    needs: check-license
-    if: needs.check-license.outputs.has_license != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Request Unity activation file
-        id: activation
-        uses: game-ci/unity-request-activation-file@v2
-        with:
-          unityVersion: ${{ env.UNITY_VERSION }}
-
-      - name: Upload activation file
-        uses: actions/upload-artifact@v4
-        with:
-          name: Unity-Activation-File
-          path: ${{ steps.activation.outputs.filePath }}
-          if-no-files-found: error
-
   build:
-    name: Build Android APK
-    needs: check-license
-    if: needs.check-license.outputs.has_license == 'true'
+    name: Build installable APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify Unity project archive
-        shell: bash
-        run: |
-          test -f TheLastHunter_Unity_Android.zip
-          unzip -t TheLastHunter_Unity_Android.zip
-
-      - name: Extract Unity project
-        shell: bash
-        run: |
-          rm -rf "$PROJECT_DIR"
-          unzip -q TheLastHunter_Unity_Android.zip
-          test -f "$PROJECT_DIR/ProjectSettings/ProjectVersion.txt"
-          test -f "$PROJECT_DIR/Assets/Editor/TheLastHunterBuilder.cs"
-
-      - name: Free disk space for Unity Android build
-        uses: jlumbroso/free-disk-space@v1.3.1
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
-          tool-cache: false
-          android: false
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: false
-          swap-storage: false
+          distribution: temurin
+          java-version: '17'
 
-      - name: Build The Last Hunter APK
-        uses: game-ci/unity-builder@v4
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          projectPath: ${{ env.PROJECT_DIR }}
-          unityVersion: ${{ env.UNITY_VERSION }}
-          targetPlatform: Android
-          buildMethod: TheLastHunter.EditorTools.TheLastHunterBuilder.BuildAndroidApk
+          gradle-version: '8.9'
 
-      - name: Verify APK
+      - name: Verify Android project archive
         shell: bash
         run: |
-          APK="$PROJECT_DIR/Builds/Android/TheLastHunter.apk"
+          test -f TheLastHunter_Android_Native.zip
+          unzip -t TheLastHunter_Android_Native.zip
+
+      - name: Extract Android project
+        shell: bash
+        run: |
+          rm -rf AndroidNative
+          mkdir -p AndroidNative
+          unzip -q TheLastHunter_Android_Native.zip -d AndroidNative
+          test -f AndroidNative/settings.gradle.kts
+          test -f AndroidNative/app/build.gradle.kts
+          test -f AndroidNative/app/src/main/AndroidManifest.xml
+
+      - name: Build debug APK
+        working-directory: AndroidNative
+        shell: bash
+        run: |
+          gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Prepare final APK
+        shell: bash
+        run: |
+          APK="AndroidNative/app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK"
           test -s "$APK"
-          file "$APK"
-          ls -lh "$APK"
+          cp "$APK" TheLastHunter.apk
+          sha256sum TheLastHunter.apk
+          ls -lh TheLastHunter.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: TheLastHunter-Android-APK
-          path: ${{ env.PROJECT_DIR }}/Builds/Android/TheLastHunter.apk
+          path: TheLastHunter.apk
           if-no-files-found: error
           compression-level: 0
