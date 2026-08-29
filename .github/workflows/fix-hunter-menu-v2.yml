@@ -1,0 +1,204 @@
+name: Fix Hunter In Main Menu V2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v3-development
+    paths:
+      - '.github/workflows/fix-hunter-menu-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-menu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout v3-development
+        uses: actions/checkout@v4
+        with:
+          ref: v3-development
+
+      - name: Add animated Hunter menu sprite
+        shell: bash
+        run: |
+          cat > Sources/V3/HunterMenuSpriteView.swift <<'SWIFT'
+          import SwiftUI
+          import SpriteKit
+
+          @MainActor
+          struct HunterMenuSpriteView: View {
+
+              private let scene: HunterMenuScene
+
+              init() {
+                  let scene =
+                      HunterMenuScene(
+                          size:
+                              CGSize(
+                                  width: 180,
+                                  height: 290
+                              )
+                      )
+
+                  scene.scaleMode = .resizeFill
+                  self.scene = scene
+              }
+
+              var body: some View {
+                  SpriteView(
+                      scene: scene,
+                      options: [
+                          .allowsTransparency
+                      ]
+                  )
+                  .background(
+                      Color.clear
+                  )
+                  .allowsHitTesting(false)
+              }
+          }
+
+          @MainActor
+          private final class HunterMenuScene:
+              SKScene {
+
+              private var didBuild = false
+
+              override func didMove(
+                  to view: SKView
+              ) {
+                  super.didMove(
+                      to: view
+                  )
+
+                  backgroundColor = .clear
+                  view.allowsTransparency = true
+
+                  guard !didBuild else {
+                      return
+                  }
+
+                  didBuild = true
+                  buildHunter()
+              }
+
+              private func buildHunter() {
+                  let frames =
+                      HunterSpriteAssets
+                          .idleFrames
+
+                  guard
+                      let first =
+                          frames.first
+                  else {
+                      return
+                  }
+
+                  let sprite =
+                      SKSpriteNode(
+                          texture: first
+                      )
+
+                  sprite.texture?
+                      .filteringMode =
+                      .nearest
+
+                  sprite.size =
+                      CGSize(
+                          width: 180,
+                          height: 180
+                      )
+
+                  sprite.position =
+                      CGPoint(
+                          x: size.width * 0.5,
+                          y: size.height * 0.43
+                      )
+
+                  sprite.zPosition = 2
+
+                  addChild(
+                      sprite
+                  )
+
+                  if frames.count > 1 {
+                      sprite.run(
+                          .repeatForever(
+                              .animate(
+                                  with: frames,
+                                  timePerFrame: 0.11,
+                                  resize: false,
+                                  restore: false
+                              )
+                          ),
+                          withKey:
+                              "menuHunterIdle"
+                      )
+                  }
+              }
+          }
+          SWIFT
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("Sources/V3/MainMenuView.swift")
+          text = path.read_text(encoding="utf-8")
+
+          if "HunterMenuSpriteView()" not in text:
+              pattern = re.compile(
+                  r'(?ms)^(?P<indent>[ \t]*)HunterBackView\('
+                  r'\s*animated:\s*hunterAnimated\s*\)'
+              )
+
+              match = pattern.search(text)
+
+              if not match:
+                  raise SystemExit(
+                      "Could not locate HunterBackView call in MainMenuView.swift"
+                  )
+
+              indent = match.group("indent")
+
+              text = (
+                  text[:match.start()]
+                  + indent
+                  + "HunterMenuSpriteView()"
+                  + text[match.end():]
+              )
+
+          path.write_text(
+              text,
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Verify menu fix
+        shell: bash
+        run: |
+          test -f Sources/V3/HunterMenuSpriteView.swift
+          grep -F "HunterMenuSpriteView()" Sources/V3/MainMenuView.swift
+          grep -F "HunterSpriteAssets" Sources/V3/HunterMenuSpriteView.swift
+
+      - name: Commit menu fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            Sources/V3/HunterMenuSpriteView.swift \
+            Sources/V3/MainMenuView.swift
+
+          if git diff --cached --quiet; then
+            echo "Menu fix already present."
+            exit 0
+          fi
+
+          git commit -m "Use animated Dark Hooded Hunter in main menu"
+          git push origin HEAD:v3-development
