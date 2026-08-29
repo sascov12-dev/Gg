@@ -127,7 +127,16 @@ final class GameState: ObservableObject {
     func startNewGame() {
         var fresh = GameProgress.fresh
 
+        // Сохраняем настройки звука,
+        // выбранные пользователем в меню.
+        fresh.musicEnabled =
+            progress.musicEnabled
+
+        fresh.sfxEnabled =
+            progress.sfxEnabled
+
         fresh.hasStartedGame = true
+
         fresh.enemyHP = Self.scaledHP(
             baseHP: fresh.currentEnemy.baseHP,
             cycle: fresh.cycle
