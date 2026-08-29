@@ -478,7 +478,7 @@ struct GameView: View {
                         height: 19
                     )
 
-                Text("◆")
+                Text("â")
                     .font(
                         .system(
                             size: 9,
@@ -552,7 +552,7 @@ struct GameView: View {
             Text(
                 session.gameState
                     .currentEnemy.isBoss
-                ? "БОСС"
+                ? "ÐÐÐ¡Ð¡"
                 : session.gameState
                     .enemyCounterLabel
             )
@@ -677,7 +677,7 @@ struct GameView: View {
             .combatPhase == .fighting {
 
             Text(
-                "КОСНИСЬ ЭКРАНА, ЧТОБЫ АТАКОВАТЬ"
+                "ÐÐÐ¡ÐÐÐ¡Ð¬ Ð­ÐÐ ÐÐÐ, Ð§Ð¢ÐÐÐ« ÐÐ¢ÐÐÐÐÐÐ¢Ð¬"
             )
             .font(
                 .system(
@@ -728,12 +728,12 @@ struct GameView: View {
 
             featureButton(
                 title:
-                    "УЛУЧШЕНИЯ"
+                    "Ð£ÐÐ£Ð§Ð¨ÐÐÐÐ¯"
             )
 
             featureButton(
                 title:
-                    "СПУТНИК"
+                    "Ð¡ÐÐ£Ð¢ÐÐÐ"
             )
         }
         .padding(
@@ -810,7 +810,7 @@ struct GameView: View {
             ) {
 
                 Text(
-                    "ПАУЗА"
+                    "ÐÐÐ£ÐÐ"
                 )
                 .font(
                     .system(
@@ -833,7 +833,7 @@ struct GameView: View {
                 )
 
                 settingsToggleButton(
-                    title: "МУЗЫКА",
+                    title: "ÐÐ£ÐÐ«ÐÐ",
                     enabled:
                         session.gameState
                             .musicEnabled
@@ -842,7 +842,7 @@ struct GameView: View {
                 }
 
                 settingsToggleButton(
-                    title: "ЗВУКИ",
+                    title: "ÐÐÐ£ÐÐ",
                     enabled:
                         session.gameState
                             .sfxEnabled
@@ -865,7 +865,7 @@ struct GameView: View {
                 } label: {
 
                     Text(
-                        "ПРОДОЛЖИТЬ"
+                        "ÐÐ ÐÐÐÐÐÐÐ¢Ð¬"
                     )
                     .frame(
                         maxWidth: .infinity
@@ -896,7 +896,7 @@ struct GameView: View {
                 } label: {
 
                     Text(
-                        "ВЫЙТИ В ГЛАВНОЕ МЕНЮ"
+                        "ÐÐ«ÐÐ¢Ð Ð ÐÐÐÐÐÐÐ ÐÐÐÐ®"
                     )
                     .font(
                         .system(
@@ -958,8 +958,8 @@ struct GameView: View {
 
                 Text(
                     enabled
-                    ? "ВКЛ"
-                    : "ВЫКЛ"
+                    ? "ÐÐÐ"
+                    : "ÐÐ«ÐÐ"
                 )
                 .foregroundColor(
                     enabled
@@ -1073,7 +1073,7 @@ struct GameView: View {
                 }
 
                 Text(
-                    "СКОРО"
+                    "Ð¡ÐÐÐ Ð"
                 )
                 .font(
                     .system(
@@ -1092,7 +1092,7 @@ struct GameView: View {
                 )
 
                 Text(
-                    "Функция появится позже"
+                    "Ð¤ÑÐ½ÐºÑÐ¸Ñ Ð¿Ð¾ÑÐ²Ð¸ÑÑÑ Ð¿Ð¾Ð·Ð¶Ðµ"
                 )
                 .font(
                     .system(
@@ -1117,7 +1117,7 @@ struct GameView: View {
                 } label: {
 
                     Text(
-                        "ЗАКРЫТЬ"
+                        "ÐÐÐÐ Ð«Ð¢Ð¬"
                     )
                     .frame(
                         maxWidth: .infinity
