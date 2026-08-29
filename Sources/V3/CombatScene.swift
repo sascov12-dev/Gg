@@ -2383,402 +2383,123 @@ private func animateHunterSprite(
         )
     )
 }
-
-private func spawnHunterAirSlash(
+    private func spawnHunterAirSlash(
     _ resolution: CombatResolution
 ) {
-    let hunterPosition =
-        hunterNode.position
-
-    let enemyPosition =
-        enemyNode.position
-
-    let gap =
-        max(
-            120,
-            enemyPosition.x
-            - hunterPosition.x
+    let frames =
+        CombatVFXAssets.slashFrames(
+            for:
+                resolution.animation
         )
 
-    let reach =
-        max(
-            100,
-            min(
-                225,
-                gap * 0.72
-            )
+    guard !frames.isEmpty else {
+        return
+    }
+
+    let slash =
+        SKSpriteNode(
+            texture:
+                frames[0]
         )
 
-    let container =
-        SKNode()
+    slash.zPosition = 240
 
-    container.position =
+    let baseSize =
+        CGSize(
+            width: 126,
+            height: 150
+        )
+
+    let scale: CGFloat
+
+    switch resolution.attackKind {
+    case .normal:
+        scale = 1.15
+
+    case .strong:
+        scale = 1.38
+
+    case .critical:
+        scale = 1.55
+    }
+
+    slash.size =
+        CGSize(
+            width:
+                baseSize.width
+                * scale,
+            height:
+                baseSize.height
+                * scale
+        )
+
+    slash.position =
         CGPoint(
             x:
-                hunterPosition.x
-                + 42,
+                hunterNode.position.x
+                + 92,
             y:
-                hunterPosition.y
-                + 34
+                hunterNode.position.y
+                + 54
         )
-
-    container.zPosition = 220
-    container.alpha = 0
-    container.xScale = 0.32
-
-    let slashColor: UIColor
-
-    if resolution.isCritical {
-        slashColor =
-            UIColor(
-                red: 0.58,
-                green: 1.00,
-                blue: 0.68,
-                alpha: 1
-            )
-    } else if resolution.isStrong {
-        slashColor =
-            UIColor(
-                red: 0.95,
-                green: 0.82,
-                blue: 0.48,
-                alpha: 1
-            )
-    } else {
-        slashColor =
-            UIColor(
-                red: 0.78,
-                green: 0.90,
-                blue: 1.00,
-                alpha: 1
-            )
-    }
-
-    let path =
-        CGMutablePath()
 
     switch resolution.animation {
-
     case .attack1:
-        path.move(
-            to:
-                CGPoint(
-                    x: -18,
-                    y: 34
-                )
-        )
-
-        path.addQuadCurve(
-            to:
-                CGPoint(
-                    x: reach,
-                    y: -30
-                ),
-            control:
-                CGPoint(
-                    x: reach * 0.42,
-                    y: 18
-                )
-        )
+        slash.zRotation = -0.10
 
     case .attack2:
-        path.move(
-            to:
-                CGPoint(
-                    x: -18,
-                    y: -26
-                )
-        )
-
-        path.addQuadCurve(
-            to:
-                CGPoint(
-                    x: reach,
-                    y: 32
-                ),
-            control:
-                CGPoint(
-                    x: reach * 0.42,
-                    y: -14
-                )
-        )
+        slash.zRotation = 0.08
 
     case .attack3:
-        path.move(
-            to:
-                CGPoint(
-                    x: -15,
-                    y: 0
-                )
-        )
+        slash.zRotation = -0.04
 
-        path.addQuadCurve(
-            to:
-                CGPoint(
-                    x: reach,
-                    y: 2
-                ),
-            control:
-                CGPoint(
-                    x: reach * 0.48,
-                    y: 20
-                )
-        )
+    case .strong:
+        slash.zRotation = -0.12
 
-    case .strong,
-         .critical:
-        path.move(
-            to:
-                CGPoint(
-                    x: -26,
-                    y: 44
-                )
-        )
-
-        path.addQuadCurve(
-            to:
-                CGPoint(
-                    x: reach + 14,
-                    y: -38
-                ),
-            control:
-                CGPoint(
-                    x: reach * 0.40,
-                    y: 4
-                )
-        )
+    case .critical:
+        slash.zRotation = -0.14
     }
 
-    let glow =
-        SKShapeNode(
-            path: path
-        )
-
-    glow.strokeColor =
-        slashColor
-            .withAlphaComponent(
-                resolution.isCritical
-                ? 0.40
-                : 0.26
-            )
-
-    glow.lineWidth =
+    slash.alpha =
         resolution.isCritical
-        ? 13
-        : (
-            resolution.isStrong
-            ? 10
-            : 7
-        )
-
-    glow.lineCap = .round
-    glow.isAntialiased = true
-    glow.glowWidth =
-        resolution.isCritical
-        ? 8
-        : 4
-
-    container.addChild(
-        glow
-    )
-
-    let core =
-        SKShapeNode(
-            path: path
-        )
-
-    core.strokeColor =
-        slashColor
-
-    core.lineWidth =
-        resolution.isCritical
-        ? 4.5
-        : (
-            resolution.isStrong
-            ? 3.8
-            : 2.8
-        )
-
-    core.lineCap = .round
-    core.isAntialiased = true
-    core.glowWidth =
-        resolution.isCritical
-        ? 3
-        : 1.5
-
-    container.addChild(
-        core
-    )
-
-    let sparkCount =
-        resolution.isCritical
-        ? 14
-        : (
-            resolution.isStrong
-            ? 11
-            : 8
-        )
-
-    let yOffsets: [CGFloat] =
-        [
-            -18,
-            -10,
-            8,
-            16,
-            -5,
-            12
-        ]
-
-    for index in 0..<sparkCount {
-        let progress =
-            CGFloat(index)
-            / CGFloat(
-                max(
-                    1,
-                    sparkCount - 1
-                )
-            )
-
-        let spark =
-            SKShapeNode(
-                rectOf:
-                    CGSize(
-                        width:
-                            resolution.isCritical
-                            ? 8
-                            : 6,
-                        height: 2
-                    ),
-                cornerRadius: 1
-            )
-
-        spark.fillColor =
-            slashColor
-
-        spark.strokeColor =
-            .clear
-
-        spark.alpha = 0.88
-
-        spark.position =
-            CGPoint(
-                x:
-                    progress
-                    * reach
-                    - 8,
-                y:
-                    yOffsets[
-                        index
-                        % yOffsets.count
-                    ]
-            )
-
-        spark.zRotation =
-            CGFloat(index % 3)
-            * 0.22
-            - 0.22
-
-        container.addChild(
-            spark
-        )
-
-        spark.run(
-            .sequence(
-                [
-                    .wait(
-                        forDuration:
-                            Double(index)
-                            * 0.006
-                    ),
-                    .group(
-                        [
-                            .moveBy(
-                                x:
-                                    18
-                                    + CGFloat(index % 4)
-                                    * 4,
-                                y:
-                                    CGFloat((index % 3) - 1)
-                                    * 7,
-                                duration: 0.15
-                            ),
-                            .fadeOut(
-                                withDuration: 0.15
-                            ),
-                            .scale(
-                                to: 0.35,
-                                duration: 0.15
-                            )
-                        ]
-                    ),
-                    .removeFromParent()
-                ]
-            )
-        )
-    }
+        ? 1.0
+        : 0.96
 
     effectsLayer.addChild(
-        container
+        slash
     )
 
-    let reveal =
-        SKAction.group(
-            [
-                .fadeAlpha(
-                    to: 1,
-                    duration: 0.035
-                ),
-                .scaleX(
-                    to: 1,
-                    duration: 0.075
-                ),
-                .moveBy(
-                    x: 10,
-                    y: 0,
-                    duration: 0.075
-                )
-            ]
-        )
+    let frameTime: TimeInterval
 
-    reveal.timingMode =
-        .easeOut
+    switch resolution.attackKind {
+    case .normal:
+        frameTime = 0.040
 
-    let vanish =
-        SKAction.group(
-            [
-                .fadeOut(
-                    withDuration:
-                        resolution.isCritical
-                        ? 0.22
-                        : 0.16
-                ),
-                .moveBy(
-                    x:
-                        resolution.isCritical
-                        ? 30
-                        : 22,
-                    y: 0,
-                    duration:
-                        resolution.isCritical
-                        ? 0.22
-                        : 0.16
-                )
-            ]
-        )
+    case .strong:
+        frameTime = 0.048
 
-    vanish.timingMode =
-        .easeOut
+    case .critical:
+        frameTime = 0.054
+    }
 
-    container.run(
+    slash.run(
         .sequence(
             [
-                reveal,
-                vanish,
+                .animate(
+                    with: frames,
+                    timePerFrame:
+                        frameTime,
+                    resize: false,
+                    restore: false
+                ),
                 .removeFromParent()
             ]
-        )
+        ),
+        withKey:
+            "realSlashFX"
     )
 }
+
 
     // MARK: - Contact FX
 
@@ -2809,194 +2530,90 @@ private func spawnHunterAirSlash(
                 resolution.attackKind
         )
     }
-
     private func showSlash(
     _ resolution: CombatResolution
 ) {
-    let impactColor: UIColor
+    let frames =
+        CombatVFXAssets.hitFrames
 
-    if resolution.isCritical {
-        impactColor =
-            UIColor(
-                red: 0.58,
-                green: 1.00,
-                blue: 0.68,
-                alpha: 1
-            )
-    } else if resolution.isStrong {
-        impactColor =
-            UIColor(
-                red: 0.95,
-                green: 0.82,
-                blue: 0.48,
-                alpha: 1
-            )
-    } else {
-        impactColor =
-            UIColor(
-                red: 0.82,
-                green: 0.91,
-                blue: 1.00,
-                alpha: 1
-            )
+    guard !frames.isEmpty else {
+        return
     }
 
-    let impactPosition =
+    let impact =
+        SKSpriteNode(
+            texture:
+                frames[0]
+        )
+
+    impact.zPosition = 260
+
+    let side: CGFloat
+
+    switch resolution.attackKind {
+    case .normal:
+        side = 58
+
+    case .strong:
+        side = 72
+
+    case .critical:
+        side = 86
+    }
+
+    impact.size =
+        CGSize(
+            width: side,
+            height: side
+        )
+
+    impact.position =
         CGPoint(
             x:
                 enemyNode.position.x
                 - 8,
             y:
                 enemyNode.position.y
-                + 20
+                + 24
         )
 
-    let ring =
-        SKShapeNode(
-            circleOfRadius:
-                resolution.isCritical
-                ? 18
-                : (
-                    resolution.isStrong
-                    ? 14
-                    : 10
-                )
-        )
-
-    ring.position =
-        impactPosition
-
-    ring.strokeColor =
-        impactColor
-
-    ring.fillColor =
-        .clear
-
-    ring.lineWidth =
-        resolution.isCritical
-        ? 3
-        : 2
-
-    ring.glowWidth =
-        resolution.isCritical
-        ? 6
-        : 3
-
-    ring.alpha = 0.95
-    ring.setScale(0.35)
+    impact.alpha = 1.0
 
     effectsLayer.addChild(
-        ring
+        impact
     )
 
-    ring.run(
+    let frameTime: TimeInterval
+
+    switch resolution.attackKind {
+    case .normal:
+        frameTime = 0.024
+
+    case .strong:
+        frameTime = 0.028
+
+    case .critical:
+        frameTime = 0.032
+    }
+
+    impact.run(
         .sequence(
             [
-                .group(
-                    [
-                        .scale(
-                            to: 1.35,
-                            duration: 0.12
-                        ),
-                        .fadeOut(
-                            withDuration: 0.12
-                        )
-                    ]
+                .animate(
+                    with: frames,
+                    timePerFrame:
+                        frameTime,
+                    resize: false,
+                    restore: false
                 ),
                 .removeFromParent()
             ]
-        )
+        ),
+        withKey:
+            "realHitFX"
     )
-
-    let directions: [(CGFloat, CGFloat)] =
-        [
-            (-1.0, 0.0),
-            (1.0, 0.0),
-            (0.0, 1.0),
-            (0.0, -1.0),
-            (-0.75, 0.75),
-            (0.75, 0.75),
-            (-0.75, -0.75),
-            (0.75, -0.75)
-        ]
-
-    let distance: CGFloat =
-        resolution.isCritical
-        ? 34
-        : (
-            resolution.isStrong
-            ? 28
-            : 22
-        )
-
-    for direction in directions {
-        let dx =
-            direction.0
-
-        let dy =
-            direction.1
-
-        let spark =
-            SKShapeNode(
-                rectOf:
-                    CGSize(
-                        width:
-                            resolution.isCritical
-                            ? 9
-                            : 6,
-                        height: 2
-                    ),
-                cornerRadius: 1
-            )
-
-        spark.position =
-            impactPosition
-
-        spark.fillColor =
-            impactColor
-
-        spark.strokeColor =
-            .clear
-
-        spark.zRotation =
-            atan2(
-                dy,
-                dx
-            )
-
-        effectsLayer.addChild(
-            spark
-        )
-
-        spark.run(
-            .sequence(
-                [
-                    .group(
-                        [
-                            .moveBy(
-                                x:
-                                    dx
-                                    * distance,
-                                y:
-                                    dy
-                                    * distance,
-                                duration: 0.14
-                            ),
-                            .fadeOut(
-                                withDuration: 0.14
-                            ),
-                            .scale(
-                                to: 0.25,
-                                duration: 0.14
-                            )
-                        ]
-                    ),
-                    .removeFromParent()
-                ]
-            )
-        )
-    }
 }
+
 
     private func showDamageNumber(
         _ resolution: CombatResolution
