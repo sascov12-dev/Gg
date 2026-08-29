@@ -16,6 +16,29 @@ enum CursedForestEnvironment {
     static func install(
         on scene: SKScene
     ) {
+        // SpriteKit may call us before CombatScene has finished building its
+        // world. Wait for the original scene layers so the new forest cannot
+        // be removed by a later buildScene()/removeAllChildren() pass.
+        guard legacyWorld(
+            in: scene
+        ) != nil else {
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + 0.08
+            ) {
+                [weak scene] in
+
+                guard let scene else {
+                    return
+                }
+
+                install(
+                    on: scene
+                )
+            }
+
+            return
+        }
+
         scene.childNode(
             withName: rootName
         )?.removeFromParent()
@@ -59,31 +82,39 @@ enum CursedForestEnvironment {
 
     // MARK: - Hide old procedural forest
 
-    private static func hideLegacyProceduralForest(
+    private static func legacyWorld(
         in scene: SKScene
-    ) {
+    ) -> SKNode? {
         let expectedLayerZ: Set<Int> = [
             -100, -80, -60, -30,
             10, 40, 70
         ]
 
-        guard let world =
-            scene.children.first(
-                where: { node in
-                    let values =
-                        Set(
-                            node.children.map {
-                                Int(
-                                    $0.zPosition
-                                )
-                            }
-                        )
+        return scene.children.first(
+            where: { node in
+                let values =
+                    Set(
+                        node.children.map {
+                            Int(
+                                $0.zPosition
+                            )
+                        }
+                    )
 
-                    return expectedLayerZ
-                        .isSubset(
-                            of: values
-                        )
-                }
+                return expectedLayerZ
+                    .isSubset(
+                        of: values
+                    )
+            }
+        )
+    }
+
+    private static func hideLegacyProceduralForest(
+        in scene: SKScene
+    ) {
+        guard let world =
+            legacyWorld(
+                in: scene
             )
         else {
             return
@@ -154,64 +185,155 @@ enum CursedForestEnvironment {
             scale
         )
 
-        // Very subtle wind deformation of the baked forest background.
-        // The lower ground stays almost fixed, while the upper trees on the
-        // left and right sway independently. The moon / combat area in the
-        // middle is intentionally kept nearly motionless.
-        sprite.shader = makeTreeSwayShader()
-
         sprite.zPosition = -20
         root.addChild(
             sprite
         )
+
+        startTreeSway(
+            on: sprite
+        )
     }
 
-    private static func makeTreeSwayShader() -> SKShader {
-        let source = """
-        void main() {
-            vec2 uv = v_tex_coord;
+    // MARK: - Tree wind
 
-            // Lock the roots / ground and gradually increase motion upward.
-            float heightMask = smoothstep(0.30, 0.92, uv.y);
-            heightMask *= heightMask;
+    private static func startTreeSway(
+        on sprite: SKSpriteNode
+    ) {
+        // Use SpriteKit's native warp geometry instead of a custom shader.
+        // This keeps the embedded background texture visible on devices where
+        // the shader path can fail, while still bending the upper side trees.
+        let neutral =
+            SKWarpGeometryGrid(
+                columns: 4,
+                rows: 4
+            )
 
-            // Animate mostly the tree-heavy left and right sides.
-            // Keep the moon and central combat area visually stable.
-            float leftTrees = 1.0 - smoothstep(0.24, 0.48, uv.x);
-            float rightTrees = smoothstep(0.52, 0.76, uv.x);
-            float treeMask = max(leftTrees, rightTrees);
+        func warped(
+            direction: Float,
+            gust: Float
+        ) -> SKWarpGeometryGrid {
+            var positions: [SIMD2<Float>] = []
+            positions.reserveCapacity(
+                neutral.vertexCount
+            )
 
-            // Two slow waves prevent a mechanical back-and-forth loop.
-            float slowWave = sin(
-                u_time * 0.52
-                + uv.y * 3.8
-                + uv.x * 1.6
-            );
-            float softGust = sin(
-                u_time * 0.27
-                + uv.y * 7.0
-                - uv.x * 2.2
-            ) * 0.30;
+            for index in 0..<neutral.vertexCount {
+                var point =
+                    neutral.destPosition(
+                        at: index
+                    )
 
-            // A tiny offset is enough for pixel art: visible, but not rubbery.
-            float bend = (slowWave + softGust)
-                * 0.0022
-                * heightMask
-                * treeMask;
+                // Roots/ground stay fixed. Motion grows toward the treetops.
+                let height =
+                    max(
+                        Float(0),
+                        min(
+                            Float(1),
+                            (point.y - 0.30) / 0.70
+                        )
+                    )
 
-            vec2 sampleUV = uv + vec2(bend, 0.0);
-            sampleUV = clamp(
-                sampleUV,
-                vec2(0.001, 0.001),
-                vec2(0.999, 0.999)
-            );
+                // Preserve the central moon/combat area. The left and right
+                // tree-heavy edges get most of the deformation.
+                let distanceFromCenter =
+                    abs(
+                        point.x - 0.5
+                    ) * 2.0
 
-            gl_FragColor = texture2D(u_texture, sampleUV);
+                let sideMask =
+                    max(
+                        Float(0),
+                        min(
+                            Float(1),
+                            (distanceFromCenter - 0.16) / 0.84
+                        )
+                    )
+
+                let bend =
+                    direction
+                    * 0.0105
+                    * height
+                    * height
+                    * sideMask
+
+                let softGust =
+                    gust
+                    * 0.0025
+                    * height
+                    * sideMask
+                    * (0.35 + point.y)
+
+                point.x += bend + softGust
+                positions.append(
+                    point
+                )
+            }
+
+            return neutral
+                .replacingByDestinationPositions(
+                    positions: positions
+                )
         }
-        """
 
-        return SKShader(
-            source: source
+        let swayLeft =
+            warped(
+                direction: -1.0,
+                gust: 0.35
+            )
+
+        let swayRight =
+            warped(
+                direction: 1.0,
+                gust: -0.25
+            )
+
+        let lightLeft =
+            warped(
+                direction: -0.45,
+                gust: -0.20
+            )
+
+        sprite.warpGeometry = neutral
+
+        guard
+            let toLeft = SKAction.warp(
+                to: swayLeft,
+                duration: 2.8
+            ),
+            let toRight = SKAction.warp(
+                to: swayRight,
+                duration: 3.4
+            ),
+            let toLightLeft = SKAction.warp(
+                to: lightLeft,
+                duration: 2.3
+            ),
+            let toNeutral = SKAction.warp(
+                to: neutral,
+                duration: 2.6
+            )
+        else {
+            return
+        }
+
+        toLeft.timingMode = .easeInEaseOut
+        toRight.timingMode = .easeInEaseOut
+        toLightLeft.timingMode = .easeInEaseOut
+        toNeutral.timingMode = .easeInEaseOut
+
+        sprite.run(
+            .repeatForever(
+                .sequence(
+                    [
+                        toLeft,
+                        toNeutral,
+                        toRight,
+                        toLightLeft
+                    ]
+                )
+            ),
+            withKey: "cursedForestTreeSway"
         )
     }
 
