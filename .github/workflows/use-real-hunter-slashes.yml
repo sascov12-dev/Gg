@@ -1,0 +1,105 @@
+name: Use Real Hunter Slash Sounds
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v3-development
+    paths:
+      - '.github/workflows/use-real-hunter-slashes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-audio-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout v3-development
+        uses: actions/checkout@v4
+        with:
+          ref: v3-development
+
+      - name: Patch build workflow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path(".github/workflows/build-ipa.yml")
+          text = path.read_text(encoding="utf-8")
+
+          marker = '''          test -f build/resources/ui_tap.wav
+          '''
+
+          block = r'''
+          # Replace generated placeholder sword slashes
+          # with the real CC0 Hunter attack sounds.
+          cp \
+            Sources/V3/Audio/hunter_slash_1.wav \
+            build/resources/hunter_slash_1.wav
+
+          cp \
+            Sources/V3/Audio/hunter_slash_2.wav \
+            build/resources/hunter_slash_2.wav
+
+          cp \
+            Sources/V3/Audio/hunter_slash_3.wav \
+            build/resources/hunter_slash_3.wav
+
+          test -f \
+            build/resources/hunter_slash_1.wav
+
+          test -f \
+            build/resources/hunter_slash_2.wav
+
+          test -f \
+            build/resources/hunter_slash_3.wav
+'''
+
+          if "Sources/V3/Audio/hunter_slash_1.wav" not in text:
+              if marker not in text:
+                  raise SystemExit(
+                      "Could not locate audio generation verification marker"
+                  )
+
+              text = text.replace(
+                  marker,
+                  marker + block,
+                  1,
+              )
+
+          path.write_text(
+              text,
+              encoding="utf-8",
+          )
+
+          print(
+              "Build workflow now uses real Hunter slash sounds."
+          )
+          PY
+
+      - name: Verify patch
+        shell: bash
+        run: |
+          grep -F "Sources/V3/Audio/hunter_slash_1.wav" .github/workflows/build-ipa.yml
+          grep -F "Sources/V3/Audio/hunter_slash_2.wav" .github/workflows/build-ipa.yml
+          grep -F "Sources/V3/Audio/hunter_slash_3.wav" .github/workflows/build-ipa.yml
+
+      - name: Commit workflow patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .github/workflows/build-ipa.yml
+
+          if git diff --cached --quiet; then
+            echo "Real Hunter slash sounds are already wired into the build."
+            exit 0
+          fi
+
+          git commit -m "Use real Hunter slash sounds in V3 build"
+          git push origin HEAD:v3-development
