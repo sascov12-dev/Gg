@@ -114,10 +114,7 @@ struct MainMenuView: View {
 
                 Spacer()
 
-                HunterBackView(
-                    animated:
-                        hunterAnimated
-                )
+                HunterMenuSpriteView()
                 .frame(
                     width: 180,
                     height: 290
