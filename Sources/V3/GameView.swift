@@ -1479,7 +1479,6 @@ private struct DarkMetalButtonStyle:
                     design: .serif
                 )
             )
-            .kerning(0.5)
             .foregroundColor(
                 emphasized
                 ? Color(
