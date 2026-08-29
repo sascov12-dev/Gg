@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - v3-development
+      - Unity-android
     paths:
       - TheLastHunter_Unity_Android.zip
       - .github/workflows/build-unity-android.yml
