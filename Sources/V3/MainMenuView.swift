@@ -217,7 +217,7 @@ struct MainMenuView: View {
                     design: .serif
                 )
             )
-            .tracking(4.5)
+            .kerning(4.5)
             .foregroundColor(
                 Color(
                     red: 0.60,
@@ -244,7 +244,7 @@ struct MainMenuView: View {
                     design: .serif
                 )
             )
-            .tracking(2.2)
+            .kerning(2.2)
             .foregroundColor(
                 Color(
                     red: 0.76,
@@ -416,7 +416,7 @@ struct MainMenuView: View {
                         design: .serif
                     )
                 )
-                .tracking(1.2)
+                .kerning(1.2)
                 .foregroundColor(
                     Color(
                         red: 0.77,
@@ -1918,7 +1918,7 @@ private struct MenuMetalButtonStyle:
                     design: .serif
                 )
             )
-            .tracking(
+            .kerning(
                 emphasized
                 ? 1.1
                 : 0.7
