@@ -16,29 +16,6 @@ enum CursedForestEnvironment {
     static func install(
         on scene: SKScene
     ) {
-        // GameView can call us before SpriteKit has finished didMove/buildScene.
-        // In that case CombatScene.buildScene() would remove our nodes again.
-        // Wait until the original world/layers really exist, then install once.
-        guard legacyWorld(
-            in: scene
-        ) != nil else {
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + 0.08
-            ) {
-                [weak scene] in
-
-                guard let scene else {
-                    return
-                }
-
-                install(
-                    on: scene
-                )
-            }
-
-            return
-        }
-
         scene.childNode(
             withName: rootName
         )?.removeFromParent()
@@ -82,39 +59,31 @@ enum CursedForestEnvironment {
 
     // MARK: - Hide old procedural forest
 
-    private static func legacyWorld(
+    private static func hideLegacyProceduralForest(
         in scene: SKScene
-    ) -> SKNode? {
+    ) {
         let expectedLayerZ: Set<Int> = [
             -100, -80, -60, -30,
             10, 40, 70
         ]
 
-        return scene.children.first(
-            where: { node in
-                let values =
-                    Set(
-                        node.children.map {
-                            Int(
-                                $0.zPosition
-                            )
-                        }
-                    )
-
-                return expectedLayerZ
-                    .isSubset(
-                        of: values
-                    )
-            }
-        )
-    }
-
-    private static func hideLegacyProceduralForest(
-        in scene: SKScene
-    ) {
         guard let world =
-            legacyWorld(
-                in: scene
+            scene.children.first(
+                where: { node in
+                    let values =
+                        Set(
+                            node.children.map {
+                                Int(
+                                    $0.zPosition
+                                )
+                            }
+                        )
+
+                    return expectedLayerZ
+                        .isSubset(
+                            of: values
+                        )
+                }
             )
         else {
             return
@@ -185,9 +154,64 @@ enum CursedForestEnvironment {
             scale
         )
 
+        // Very subtle wind deformation of the baked forest background.
+        // The lower ground stays almost fixed, while the upper trees on the
+        // left and right sway independently. The moon / combat area in the
+        // middle is intentionally kept nearly motionless.
+        sprite.shader = makeTreeSwayShader()
+
         sprite.zPosition = -20
         root.addChild(
             sprite
+        )
+    }
+
+    private static func makeTreeSwayShader() -> SKShader {
+        let source = """
+        void main() {
+            vec2 uv = v_tex_coord;
+
+            // Lock the roots / ground and gradually increase motion upward.
+            float heightMask = smoothstep(0.30, 0.92, uv.y);
+            heightMask *= heightMask;
+
+            // Animate mostly the tree-heavy left and right sides.
+            // Keep the moon and central combat area visually stable.
+            float leftTrees = 1.0 - smoothstep(0.24, 0.48, uv.x);
+            float rightTrees = smoothstep(0.52, 0.76, uv.x);
+            float treeMask = max(leftTrees, rightTrees);
+
+            // Two slow waves prevent a mechanical back-and-forth loop.
+            float slowWave = sin(
+                u_time * 0.52
+                + uv.y * 3.8
+                + uv.x * 1.6
+            );
+            float softGust = sin(
+                u_time * 0.27
+                + uv.y * 7.0
+                - uv.x * 2.2
+            ) * 0.30;
+
+            // A tiny offset is enough for pixel art: visible, but not rubbery.
+            float bend = (slowWave + softGust)
+                * 0.0022
+                * heightMask
+                * treeMask;
+
+            vec2 sampleUV = uv + vec2(bend, 0.0);
+            sampleUV = clamp(
+                sampleUV,
+                vec2(0.001, 0.001),
+                vec2(0.999, 0.999)
+            );
+
+            gl_FragColor = texture2D(u_texture, sampleUV);
+        }
+        """
+
+        return SKShader(
+            source: source
         )
     }
 
@@ -197,11 +221,14 @@ enum CursedForestEnvironment {
         to root: SKNode,
         sceneSize: CGSize
     ) {
-        let baseSize =
-            sceneSize.width
-            * 0.56
+        let glow =
+            SKSpriteNode(
+                texture:
+                    Assets.moonGlow
+            )
 
-        let moonPosition =
+        glow.name = "moonGlow"
+        glow.position =
             CGPoint(
                 x:
                     sceneSize.width
@@ -211,149 +238,69 @@ enum CursedForestEnvironment {
                     * 0.86
             )
 
-        // Main glow: clearly visible slow breathing.
-        let glow =
-            SKSpriteNode(
-                texture:
-                    Assets.moonGlow
-            )
+        let side =
+            sceneSize.width
+            * 0.50
 
-        glow.name = "moonGlow"
-        glow.position = moonPosition
         glow.size =
             CGSize(
-                width: baseSize,
-                height: baseSize
+                width: side,
+                height: side
             )
-        glow.alpha = 0.20
+
+        glow.alpha = 0.13
         glow.blendMode = .add
-        glow.zPosition = -13
+        glow.zPosition = -14
 
         root.addChild(
             glow
         )
 
-        let brighten =
+        let breatheOut =
             SKAction.group(
                 [
                     .scale(
-                        to: 1.16,
-                        duration: 2.15
+                        to: 1.055,
+                        duration: 2.8
                     ),
                     .fadeAlpha(
-                        to: 0.42,
-                        duration: 2.15
+                        to: 0.21,
+                        duration: 2.8
                     )
                 ]
             )
 
-        brighten.timingMode =
+        breatheOut.timingMode =
             .easeInEaseOut
 
-        let dim =
+        let breatheIn =
             SKAction.group(
                 [
                     .scale(
-                        to: 0.98,
-                        duration: 2.55
+                        to: 0.97,
+                        duration: 3.2
                     ),
                     .fadeAlpha(
-                        to: 0.18,
-                        duration: 2.55
+                        to: 0.12,
+                        duration: 3.2
                     )
                 ]
             )
 
-        dim.timingMode =
+        breatheIn.timingMode =
             .easeInEaseOut
 
         glow.run(
             .repeatForever(
                 .sequence(
                     [
-                        brighten,
-                        dim
+                        breatheOut,
+                        breatheIn
                     ]
                 )
             ),
             withKey:
                 "moonBreathing"
-        )
-
-        // Secondary halo makes the animation readable even on bright displays.
-        let halo =
-            SKSpriteNode(
-                texture:
-                    Assets.moonGlow
-            )
-
-        halo.name = "moonGlowHalo"
-        halo.position = moonPosition
-        halo.size =
-            CGSize(
-                width: baseSize * 1.20,
-                height: baseSize * 1.20
-            )
-        halo.alpha = 0.09
-        halo.blendMode = .add
-        halo.zPosition = -14
-
-        root.addChild(
-            halo
-        )
-
-        let haloOut =
-            SKAction.group(
-                [
-                    .scale(
-                        to: 1.12,
-                        duration: 3.10
-                    ),
-                    .fadeAlpha(
-                        to: 0.22,
-                        duration: 3.10
-                    )
-                ]
-            )
-
-        haloOut.timingMode =
-            .easeInEaseOut
-
-        let haloIn =
-            SKAction.group(
-                [
-                    .scale(
-                        to: 0.96,
-                        duration: 3.45
-                    ),
-                    .fadeAlpha(
-                        to: 0.07,
-                        duration: 3.45
-                    )
-                ]
-            )
-
-        haloIn.timingMode =
-            .easeInEaseOut
-
-        halo.run(
-            .sequence(
-                [
-                    .wait(
-                        forDuration: 0.55
-                    ),
-                    .repeatForever(
-                        .sequence(
-                            [
-                                haloOut,
-                                haloIn
-                            ]
-                        )
-                    )
-                ]
-            ),
-            withKey:
-                "moonHaloBreathing"
         )
     }
 
@@ -363,260 +310,145 @@ enum CursedForestEnvironment {
         to root: SKNode,
         sceneSize: CGSize
     ) {
-        // Three independent sprite-based layers.
-        // Uses the original embedded fog sprites from the visual pack.
-
-        let high =
+        let back =
             SKSpriteNode(
                 texture:
                     Assets.fogBack
             )
 
-        high.name = "fogHigh"
-        high.position =
-            CGPoint(
-                x:
-                    sceneSize.width
-                    * 0.46,
-                y:
-                    sceneSize.height
-                    * 0.43
-            )
-
-        high.size =
-            CGSize(
-                width:
-                    sceneSize.width
-                    * 1.52,
-                height:
-                    sceneSize.height
-                    * 0.22
-            )
-
-        high.alpha = 0.16
-        high.zPosition = -4
-        root.addChild(
-            high
-        )
-
-        let highMove =
-            SKAction.moveBy(
-                x:
-                    sceneSize.width
-                    * 0.15,
-                y:
-                    sceneSize.height
-                    * 0.008,
-                duration: 18.0
-            )
-
-        highMove.timingMode =
-            .easeInEaseOut
-
-        let highOut =
-            SKAction.fadeAlpha(
-                to: 0.24,
-                duration: 5.6
-            )
-
-        let highIn =
-            SKAction.fadeAlpha(
-                to: 0.13,
-                duration: 6.2
-            )
-
-        high.run(
-            .repeatForever(
-                .sequence(
-                    [
-                        highMove,
-                        highMove.reversed()
-                    ]
-                )
-            ),
-            withKey:
-                "fogHighDrift"
-        )
-
-        high.run(
-            .repeatForever(
-                .sequence(
-                    [
-                        highOut,
-                        highIn
-                    ]
-                )
-            ),
-            withKey:
-                "fogHighPulse"
-        )
-
-        let middle =
-            SKSpriteNode(
-                texture:
-                    Assets.fogFront
-            )
-
-        middle.name = "fogMiddle"
-        middle.position =
-            CGPoint(
-                x:
-                    sceneSize.width
-                    * 0.54,
-                y:
-                    sceneSize.height
-                    * 0.30
-            )
-
-        middle.size =
-            CGSize(
-                width:
-                    sceneSize.width
-                    * 1.66,
-                height:
-                    sceneSize.height
-                    * 0.24
-            )
-
-        middle.alpha = 0.27
-        middle.zPosition = 6
-        root.addChild(
-            middle
-        )
-
-        let middleMove =
-            SKAction.moveBy(
-                x:
-                    -sceneSize.width
-                    * 0.22,
-                y:
-                    -sceneSize.height
-                    * 0.006,
-                duration: 12.5
-            )
-
-        middleMove.timingMode =
-            .easeInEaseOut
-
-        let middleOut =
-            SKAction.fadeAlpha(
-                to: 0.36,
-                duration: 4.4
-            )
-
-        let middleIn =
-            SKAction.fadeAlpha(
-                to: 0.22,
-                duration: 5.0
-            )
-
-        middle.run(
-            .repeatForever(
-                .sequence(
-                    [
-                        middleMove,
-                        middleMove.reversed()
-                    ]
-                )
-            ),
-            withKey:
-                "fogMiddleDrift"
-        )
-
-        middle.run(
-            .repeatForever(
-                .sequence(
-                    [
-                        middleOut,
-                        middleIn
-                    ]
-                )
-            ),
-            withKey:
-                "fogMiddlePulse"
-        )
-
-        let ground =
-            SKSpriteNode(
-                texture:
-                    Assets.fogBack
-            )
-
-        ground.name = "fogGround"
-        ground.position =
+        back.name = "fogBack"
+        back.position =
             CGPoint(
                 x:
                     sceneSize.width
                     * 0.48,
                 y:
                     sceneSize.height
-                    * 0.17
+                    * 0.30
             )
 
-        ground.size =
+        back.size =
             CGSize(
                 width:
                     sceneSize.width
-                    * 1.80,
+                    * 1.38,
                 height:
                     sceneSize.height
-                    * 0.25
+                    * 0.18
             )
 
-        ground.alpha = 0.34
-        ground.zPosition = 24
+        back.alpha = 0.13
+        back.zPosition = 2
         root.addChild(
-            ground
+            back
         )
 
-        let groundMove =
+        let backMove =
             SKAction.moveBy(
                 x:
                     sceneSize.width
-                    * 0.26,
+                    * 0.16,
                 y: 0,
-                duration: 10.0
+                duration: 13.0
             )
 
-        groundMove.timingMode =
+        backMove.timingMode =
             .easeInEaseOut
 
-        let groundOut =
-            SKAction.fadeAlpha(
-                to: 0.43,
-                duration: 3.8
-            )
-
-        let groundIn =
-            SKAction.fadeAlpha(
-                to: 0.28,
-                duration: 4.5
-            )
-
-        ground.run(
+        back.run(
             .repeatForever(
                 .sequence(
                     [
-                        groundMove,
-                        groundMove.reversed()
+                        backMove,
+                        backMove.reversed()
                     ]
                 )
             ),
             withKey:
-                "fogGroundDrift"
+                "fogBackDrift"
         )
 
-        ground.run(
+        let front =
+            SKSpriteNode(
+                texture:
+                    Assets.fogFront
+            )
+
+        front.name = "fogFront"
+        front.position =
+            CGPoint(
+                x:
+                    sceneSize.width
+                    * 0.52,
+                y:
+                    sceneSize.height
+                    * 0.18
+            )
+
+        front.size =
+            CGSize(
+                width:
+                    sceneSize.width
+                    * 1.48,
+                height:
+                    sceneSize.height
+                    * 0.20
+            )
+
+        front.alpha = 0.17
+        front.zPosition = 22
+        root.addChild(
+            front
+        )
+
+        let frontMove =
+            SKAction.moveBy(
+                x:
+                    -sceneSize.width
+                    * 0.19,
+                y: 0,
+                duration: 9.5
+            )
+
+        frontMove.timingMode =
+            .easeInEaseOut
+
+        let fogPulseOut =
+            SKAction.fadeAlpha(
+                to: 0.22,
+                duration: 4.2
+            )
+
+        let fogPulseIn =
+            SKAction.fadeAlpha(
+                to: 0.14,
+                duration: 4.8
+            )
+
+        front.run(
             .repeatForever(
                 .sequence(
                     [
-                        groundOut,
-                        groundIn
+                        frontMove,
+                        frontMove.reversed()
                     ]
                 )
             ),
             withKey:
-                "fogGroundPulse"
+                "fogFrontDrift"
+        )
+
+        front.run(
+            .repeatForever(
+                .sequence(
+                    [
+                        fogPulseOut,
+                        fogPulseIn
+                    ]
+                )
+            ),
+            withKey:
+                "fogFrontPulse"
         )
     }
 
