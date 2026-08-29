@@ -137,6 +137,10 @@ final class GameSession: ObservableObject {
                 combatScene.startNewGame()
             }
         }
+
+        CursedForestEnvironment.install(
+            on: combatScene
+        )
     }
 
     // MARK: - Pause
