@@ -1,0 +1,306 @@
+name: Connect Real Combat VFX
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - v3-development
+    paths:
+      - '.github/workflows/connect-real-combat-vfx.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  connect-vfx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout v3-development
+        uses: actions/checkout@v4
+        with:
+          ref: v3-development
+
+      - name: Replace temporary combat effects
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("Sources/V3/CombatScene.swift")
+          text = path.read_text(encoding="utf-8")
+
+          spawn_pattern = re.compile(
+              r'(?ms)^\s*private func spawnHunterAirSlash\(\s*'
+              r'_ resolution: CombatResolution\s*\)\s*\{.*?'
+              r'(?=^\s*// MARK: - Contact FX)'
+          )
+
+          spawn_replacement = r'''    private func spawnHunterAirSlash(
+              _ resolution: CombatResolution
+          ) {
+              let frames =
+                  CombatVFXAssets.slashFrames(
+                      for:
+                          resolution.animation
+                  )
+
+              guard !frames.isEmpty else {
+                  return
+              }
+
+              let slash =
+                  SKSpriteNode(
+                      texture:
+                          frames[0]
+                  )
+
+              slash.zPosition = 240
+
+              let baseSize =
+                  CGSize(
+                      width: 126,
+                      height: 150
+                  )
+
+              let scale: CGFloat
+
+              switch resolution.attackKind {
+              case .normal:
+                  scale = 1.15
+
+              case .strong:
+                  scale = 1.38
+
+              case .critical:
+                  scale = 1.55
+              }
+
+              slash.size =
+                  CGSize(
+                      width:
+                          baseSize.width
+                          * scale,
+                      height:
+                          baseSize.height
+                          * scale
+                  )
+
+              slash.position =
+                  CGPoint(
+                      x:
+                          hunterNode.position.x
+                          + 92,
+                      y:
+                          hunterNode.position.y
+                          + 54
+                  )
+
+              switch resolution.animation {
+              case .attack1:
+                  slash.zRotation = -0.10
+
+              case .attack2:
+                  slash.zRotation = 0.08
+
+              case .attack3:
+                  slash.zRotation = -0.04
+
+              case .strong:
+                  slash.zRotation = -0.12
+
+              case .critical:
+                  slash.zRotation = -0.14
+              }
+
+              slash.alpha =
+                  resolution.isCritical
+                  ? 1.0
+                  : 0.96
+
+              effectsLayer.addChild(
+                  slash
+              )
+
+              let frameTime: TimeInterval
+
+              switch resolution.attackKind {
+              case .normal:
+                  frameTime = 0.040
+
+              case .strong:
+                  frameTime = 0.048
+
+              case .critical:
+                  frameTime = 0.054
+              }
+
+              slash.run(
+                  .sequence(
+                      [
+                          .animate(
+                              with: frames,
+                              timePerFrame:
+                                  frameTime,
+                              resize: false,
+                              restore: false
+                          ),
+                          .removeFromParent()
+                      ]
+                  ),
+                  withKey:
+                      "realSlashFX"
+              )
+          }
+
+          '''
+
+          text, spawn_count = spawn_pattern.subn(
+              spawn_replacement,
+              text,
+              count=1,
+          )
+
+          if spawn_count != 1:
+              raise SystemExit(
+                  "Could not replace spawnHunterAirSlash"
+              )
+
+          hit_pattern = re.compile(
+              r'(?ms)^\s*private func showSlash\(\s*'
+              r'_ resolution: CombatResolution\s*\)\s*\{.*?'
+              r'(?=^\s*private func showDamageNumber\()'
+          )
+
+          hit_replacement = r'''    private func showSlash(
+              _ resolution: CombatResolution
+          ) {
+              let frames =
+                  CombatVFXAssets.hitFrames
+
+              guard !frames.isEmpty else {
+                  return
+              }
+
+              let impact =
+                  SKSpriteNode(
+                      texture:
+                          frames[0]
+                  )
+
+              impact.zPosition = 260
+
+              let side: CGFloat
+
+              switch resolution.attackKind {
+              case .normal:
+                  side = 58
+
+              case .strong:
+                  side = 72
+
+              case .critical:
+                  side = 86
+              }
+
+              impact.size =
+                  CGSize(
+                      width: side,
+                      height: side
+                  )
+
+              impact.position =
+                  CGPoint(
+                      x:
+                          enemyNode.position.x
+                          - 8,
+                      y:
+                          enemyNode.position.y
+                          + 24
+                  )
+
+              impact.alpha = 1.0
+
+              effectsLayer.addChild(
+                  impact
+              )
+
+              let frameTime: TimeInterval
+
+              switch resolution.attackKind {
+              case .normal:
+                  frameTime = 0.024
+
+              case .strong:
+                  frameTime = 0.028
+
+              case .critical:
+                  frameTime = 0.032
+              }
+
+              impact.run(
+                  .sequence(
+                      [
+                          .animate(
+                              with: frames,
+                              timePerFrame:
+                                  frameTime,
+                              resize: false,
+                              restore: false
+                          ),
+                          .removeFromParent()
+                      ]
+                  ),
+                  withKey:
+                      "realHitFX"
+              )
+          }
+
+          '''
+
+          text, hit_count = hit_pattern.subn(
+              hit_replacement,
+              text,
+              count=1,
+          )
+
+          if hit_count != 1:
+              raise SystemExit(
+                  "Could not replace showSlash"
+              )
+
+          path.write_text(
+              text,
+              encoding="utf-8",
+          )
+
+          print(
+              "Real slash and hit sprite effects connected."
+          )
+          PY
+
+      - name: Verify integration
+        shell: bash
+        run: |
+          grep -F "CombatVFXAssets.slashFrames" Sources/V3/CombatScene.swift
+          grep -F "CombatVFXAssets.hitFrames" Sources/V3/CombatScene.swift
+          grep -F '"realSlashFX"' Sources/V3/CombatScene.swift
+          grep -F '"realHitFX"' Sources/V3/CombatScene.swift
+
+      - name: Commit integration
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add Sources/V3/CombatScene.swift
+
+          if git diff --cached --quiet; then
+            echo "Real combat VFX already connected."
+            exit 0
+          fi
+
+          git commit -m "Connect real slash and hit sprite effects"
+          git push origin HEAD:v3-development
