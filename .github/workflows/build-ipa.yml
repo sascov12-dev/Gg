@@ -343,6 +343,16 @@ jobs:
           test -f build/resources/demon_death_start.wav
           test -f build/resources/ui_tap.wav
 
+          # Replace generated placeholder sword slashes
+          # with the real Hunter attack sounds.
+          cp Sources/V3/Audio/hunter_slash_1.wav build/resources/hunter_slash_1.wav
+          cp Sources/V3/Audio/hunter_slash_2.wav build/resources/hunter_slash_2.wav
+          cp Sources/V3/Audio/hunter_slash_3.wav build/resources/hunter_slash_3.wav
+
+          test -f build/resources/hunter_slash_1.wav
+          test -f build/resources/hunter_slash_2.wav
+          test -f build/resources/hunter_slash_3.wav
+
       - name: Generate The Last Hunter icon
         shell: bash
         run: |
@@ -399,7 +409,6 @@ jobs:
                       + 22 * glow
                   )
 
-                  # Dark hood.
                   hood_x = (
                       x - 512
                   ) / 285.0
@@ -419,7 +428,6 @@ jobs:
                       green = 16
                       blue = 18
 
-                  # Face shadow.
                   face_x = (
                       x - 512
                   ) / 175.0
@@ -439,7 +447,6 @@ jobs:
                       green = 5
                       blue = 5
 
-                  # Cloak shoulders.
                   if (
                       y > 640
                       and
@@ -458,7 +465,6 @@ jobs:
                       green = 13
                       blue = 15
 
-                  # Green eyes.
                   eye_y = (
                       500
                       <= y
@@ -698,9 +704,7 @@ jobs:
           set -euo pipefail
 
           SDK="$(
-            xcrun \
-              --sdk iphoneos \
-              --show-sdk-path
+            xcrun               --sdk iphoneos               --show-sdk-path
           )"
 
           APP="build/Payload/MinimalClicker.app"
@@ -708,45 +712,21 @@ jobs:
           mkdir -p "$APP"
 
           echo "Swift files:"
-          find Sources/V3 \
-            -maxdepth 1 \
-            -name '*.swift' \
-            -print \
-            | sort
+          find Sources/V3             -maxdepth 1             -name '*.swift'             -print             | sort
 
-          xcrun swiftc \
-            -parse-as-library \
-            -target arm64-apple-ios15.0 \
-            -sdk "$SDK" \
-            -O \
-            -framework Foundation \
-            -framework SwiftUI \
-            -framework UIKit \
-            -framework Combine \
-            -framework AVFoundation \
-            -framework SpriteKit \
-            Sources/V3/*.swift \
-            -o "$APP/MinimalClicker"
+          xcrun swiftc             -parse-as-library             -target arm64-apple-ios15.0             -sdk "$SDK"             -O             -framework Foundation             -framework SwiftUI             -framework UIKit             -framework Combine             -framework AVFoundation             -framework SpriteKit             Sources/V3/*.swift             -o "$APP/MinimalClicker"
 
-          chmod +x \
-            "$APP/MinimalClicker"
+          chmod +x             "$APP/MinimalClicker"
 
-          cp \
-            Info.plist \
-            "$APP/Info.plist"
+          cp             Info.plist             "$APP/Info.plist"
 
-          cp \
-            build/resources/*.wav \
-            "$APP/"
+          cp             build/resources/*.wav             "$APP/"
 
-          test -f \
-            "$APP/MinimalClicker"
+          test -f             "$APP/MinimalClicker"
 
-          test -f \
-            "$APP/music_forest.wav"
+          test -f             "$APP/music_forest.wav"
 
-          test -f \
-            "$APP/ui_tap.wav"
+          test -f             "$APP/ui_tap.wav"
 
       - name: Compile app icon
         shell: bash
@@ -755,19 +735,9 @@ jobs:
 
           APP="build/Payload/MinimalClicker.app"
 
-          xcrun actool \
-            build/icons/Assets.xcassets \
-            --compile "$APP" \
-            --platform iphoneos \
-            --minimum-deployment-target 15.0 \
-            --target-device iphone \
-            --app-icon AppIcon \
-            --product-type com.apple.product-type.application \
-            --output-partial-info-plist build/asset-info.plist \
-            --compress-pngs
+          xcrun actool             build/icons/Assets.xcassets             --compile "$APP"             --platform iphoneos             --minimum-deployment-target 15.0             --target-device iphone             --app-icon AppIcon             --product-type com.apple.product-type.application             --output-partial-info-plist build/asset-info.plist             --compress-pngs
 
-          test -f \
-            "$APP/Assets.car"
+          test -f             "$APP/Assets.car"
 
       - name: Finalize Info.plist
         shell: bash
@@ -816,13 +786,9 @@ jobs:
               )
           PY
 
-          /usr/bin/plutil \
-            -lint \
-            build/Payload/MinimalClicker.app/Info.plist
+          /usr/bin/plutil             -lint             build/Payload/MinimalClicker.app/Info.plist
 
-          /usr/bin/plutil \
-            -p \
-            build/Payload/MinimalClicker.app/Info.plist
+          /usr/bin/plutil             -p             build/Payload/MinimalClicker.app/Info.plist
 
       - name: Package unsigned IPA
         shell: bash
@@ -831,17 +797,12 @@ jobs:
 
           cd build
 
-          zip \
-            -qry \
-            TheLastHunter-V3-unsigned.ipa \
-            Payload
+          zip             -qry             TheLastHunter-V3-unsigned.ipa             Payload
 
-          test -f \
-            TheLastHunter-V3-unsigned.ipa
+          test -f             TheLastHunter-V3-unsigned.ipa
 
           echo "IPA size:"
-          du -h \
-            TheLastHunter-V3-unsigned.ipa
+          du -h             TheLastHunter-V3-unsigned.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
