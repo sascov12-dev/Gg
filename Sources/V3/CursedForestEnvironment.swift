@@ -497,22 +497,12 @@ enum CursedForestEnvironment {
             CGPoint(
                 x:
                     CGFloat.random(
-                        in:
-                            -18
-                            ...(
-                                sceneSize.width
-                                + 18
-                            )
+                        in: (-18)...(sceneSize.width + 18)
                     ),
                 y:
                     firstPass
                     ? CGFloat.random(
-                        in:
-                            sceneSize.height
-                            * 0.34
-                            ...
-                            sceneSize.height
-                            * 1.02
+                        in: (sceneSize.height * 0.34)...(sceneSize.height * 1.02)
                     )
                     : sceneSize.height
                         + CGFloat.random(
@@ -527,10 +517,7 @@ enum CursedForestEnvironment {
 
         leaf.zRotation =
             CGFloat.random(
-                in:
-                    -CGFloat.pi
-                    ...
-                    CGFloat.pi
+                in: (-CGFloat.pi)...CGFloat.pi
             )
     }
 
@@ -567,12 +554,7 @@ enum CursedForestEnvironment {
             SKAction.rotate(
                 byAngle:
                     CGFloat.random(
-                        in:
-                            -CGFloat.pi
-                            * 2.0
-                            ...
-                            CGFloat.pi
-                            * 2.0
+                        in: (-CGFloat.pi * 2.0)...(CGFloat.pi * 2.0)
                     ),
                 duration: duration
             )
@@ -682,19 +664,11 @@ enum CursedForestEnvironment {
                 CGPoint(
                     x:
                         CGFloat.random(
-                            in:
-                                0
-                                ...
-                                sceneSize.width
+                            in: 0...sceneSize.width
                         ),
                     y:
                         CGFloat.random(
-                            in:
-                                sceneSize.height
-                                * 0.28
-                                ...
-                                sceneSize.height
-                                * 0.72
+                            in: (sceneSize.height * 0.28)...(sceneSize.height * 0.72)
                         )
                 )
 
