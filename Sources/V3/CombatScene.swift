@@ -5,7 +5,7 @@ import UIKit
 @MainActor
 final class CombatScene: SKScene {
 
-    // MARK: - Game systems
+    // MARK: - Systems
 
     let gameState: GameState
     let hunterController: HunterController
@@ -14,7 +14,7 @@ final class CombatScene: SKScene {
 
     private let audioManager: AudioManager
 
-    // MARK: - Scene layers
+    // MARK: - Layers
 
     private let worldNode = SKNode()
 
@@ -41,7 +41,6 @@ final class CombatScene: SKScene {
 
     private var sceneBuilt = false
     private var lastUpdateTime: TimeInterval = 0
-
     private var currentEnemyID: EnemyID?
 
     // MARK: - Init
@@ -60,11 +59,10 @@ final class CombatScene: SKScene {
         self.encounterDirector = encounterDirector
         self.audioManager = audioManager
 
-        super.init(
-            size: size
-        )
+        super.init(size: size)
 
         scaleMode = .resizeFill
+
         backgroundColor = UIColor(
             red: 0.035,
             green: 0.043,
@@ -75,9 +73,7 @@ final class CombatScene: SKScene {
         bindCallbacks()
     }
 
-    required init?(
-        coder aDecoder: NSCoder
-    ) {
+    required init?(coder aDecoder: NSCoder) {
         fatalError(
             "init(coder:) has not been implemented"
         )
@@ -85,9 +81,7 @@ final class CombatScene: SKScene {
 
     // MARK: - Scene lifecycle
 
-    override func didMove(
-        to view: SKView
-    ) {
+    override func didMove(to view: SKView) {
         view.ignoresSiblingOrder = true
         view.shouldCullNonVisibleNodes = true
 
@@ -106,9 +100,7 @@ final class CombatScene: SKScene {
     override func didChangeSize(
         _ oldSize: CGSize
     ) {
-        super.didChangeSize(
-            oldSize
-        )
+        super.didChangeSize(oldSize)
 
         guard sceneBuilt else {
             return
@@ -117,7 +109,7 @@ final class CombatScene: SKScene {
         layoutScene()
     }
 
-    // MARK: - Public start
+    // MARK: - Start
 
     func startNewGame() {
         lastUpdateTime = 0
@@ -181,10 +173,7 @@ final class CombatScene: SKScene {
         lastUpdateTime = currentTime
 
         delta = min(
-            max(
-                delta,
-                0
-            ),
+            max(delta, 0),
             0.05
         )
 
@@ -214,12 +203,9 @@ final class CombatScene: SKScene {
             .handleAttackInput()
     }
 
-    // MARK: - Bind systems
+    // MARK: - Bind
 
     private func bindCallbacks() {
-
-        // Preserve EncounterDirector's important
-        // sword-contact callback and add visuals.
 
         let previousSwordContact =
             hunterController.onSwordContact
@@ -391,19 +377,21 @@ final class CombatScene: SKScene {
         }
 
         let previousCycle =
-            encounterDirector.onCycleTransitionStarted
+            encounterDirector
+                .onCycleTransitionStarted
 
-        encounterDirector.onCycleTransitionStarted = {
-            [weak self] cycle in
+        encounterDirector
+            .onCycleTransitionStarted = {
+                [weak self] cycle in
 
-            previousCycle?(
-                cycle
-            )
+                previousCycle?(
+                    cycle
+                )
 
-            self?.handleCycleTransition(
-                cycle: cycle
-            )
-        }
+                self?.handleCycleTransition(
+                    cycle: cycle
+                )
+            }
     }
 
     // MARK: - Build scene
@@ -411,9 +399,7 @@ final class CombatScene: SKScene {
     private func buildScene() {
         removeAllChildren()
 
-        addChild(
-            worldNode
-        )
+        addChild(worldNode)
 
         worldNode.addChild(
             backgroundLayer
@@ -491,7 +477,8 @@ final class CombatScene: SKScene {
                 alpha: 1
             )
 
-        background.strokeColor = .clear
+        background.strokeColor =
+            .clear
 
         backgroundLayer.addChild(
             background
@@ -562,9 +549,7 @@ final class CombatScene: SKScene {
 
         glow.strokeColor = .clear
 
-        moon.addChild(
-            glow
-        )
+        moon.addChild(glow)
     }
 
     private func buildTrees() {
@@ -603,7 +588,8 @@ final class CombatScene: SKScene {
                         CGFloat.random(
                             in: 12...24
                         ),
-                    color: farColor
+                    color:
+                        farColor
                 )
 
             trunk.position =
@@ -622,12 +608,13 @@ final class CombatScene: SKScene {
             )
         }
 
-        let nearPositions: [CGFloat] = [
-            0.02,
-            0.18,
-            0.86,
-            0.98
-        ]
+        let nearPositions:
+            [CGFloat] = [
+                0.02,
+                0.18,
+                0.86,
+                0.98
+            ]
 
         for factor in nearPositions {
             let trunk =
@@ -641,13 +628,18 @@ final class CombatScene: SKScene {
                         CGFloat.random(
                             in: 20...34
                         ),
-                    color: nearColor
+                    color:
+                        nearColor
                 )
 
             trunk.position =
                 CGPoint(
-                    x: size.width * factor,
-                    y: size.height * 0.16
+                    x:
+                        size.width
+                        * factor,
+                    y:
+                        size.height
+                        * 0.16
                 )
 
             midForestLayer.addChild(
@@ -695,7 +687,9 @@ final class CombatScene: SKScene {
                 height
                 * (
                     0.46
-                    + CGFloat(branchIndex)
+                    + CGFloat(
+                        branchIndex
+                    )
                     * 0.11
                 )
 
@@ -730,6 +724,7 @@ final class CombatScene: SKScene {
 
             branch.path = path
             branch.strokeColor = color
+
             branch.lineWidth =
                 CGFloat.random(
                     in: 5...9
@@ -753,8 +748,11 @@ final class CombatScene: SKScene {
                     CGRect(
                         x: 0,
                         y: 0,
-                        width: size.width,
-                        height: size.height * 0.28
+                        width:
+                            size.width,
+                        height:
+                            size.height
+                            * 0.28
                     )
             )
 
@@ -803,7 +801,13 @@ final class CombatScene: SKScene {
                 CGPoint(
                     x:
                         CGFloat.random(
-                            in: 10...(size.width - 10)
+                            in:
+                                10
+                                ...
+                                max(
+                                    11,
+                                    size.width - 10
+                                )
                         ),
                     y:
                         CGFloat.random(
@@ -823,23 +827,18 @@ final class CombatScene: SKScene {
     }
 
     private func buildGravestones() {
-        let positions: [
-            (
-                CGFloat,
-                CGFloat
-            )
-        ] = [
-            (0.08, 0.21),
-            (0.91, 0.20),
-            (0.14, 0.16),
-            (0.82, 0.15)
-        ]
+        let positions:
+            [(CGFloat, CGFloat)] = [
+                (0.08, 0.21),
+                (0.91, 0.20),
+                (0.14, 0.16),
+                (0.82, 0.15)
+            ]
 
         for (
             xFactor,
             yFactor
         ) in positions {
-
             let grave =
                 SKShapeNode(
                     rectOf:
@@ -871,8 +870,12 @@ final class CombatScene: SKScene {
 
             grave.position =
                 CGPoint(
-                    x: size.width * xFactor,
-                    y: size.height * yFactor
+                    x:
+                        size.width
+                        * xFactor,
+                    y:
+                        size.height
+                        * yFactor
                 )
 
             grave.zRotation =
@@ -1026,7 +1029,10 @@ final class CombatScene: SKScene {
 
         leaf.zRotation =
             CGFloat.random(
-                in: 0...(CGFloat.pi * 2)
+                in:
+                    0
+                    ...
+                    CGFloat.pi * 2
             )
     }
 
@@ -1046,7 +1052,8 @@ final class CombatScene: SKScene {
                     ),
                 y:
                     -size.height * 0.65,
-                duration: duration
+                duration:
+                    duration
             )
 
         let rotate =
@@ -1055,26 +1062,26 @@ final class CombatScene: SKScene {
                     CGFloat.random(
                         in: -4...4
                     ),
-                duration: duration
-            )
-
-        let group =
-            SKAction.group(
-                [
-                    move,
-                    rotate
-                ]
+                duration:
+                    duration
             )
 
         leaf.run(
             .sequence(
                 [
-                    group,
+                    .group(
+                        [
+                            move,
+                            rotate
+                        ]
+                    ),
                     .run {
                         [weak self, weak leaf] in
 
-                        guard let self,
-                              let leaf else {
+                        guard
+                            let self,
+                            let leaf
+                        else {
                             return
                         }
 
@@ -1098,15 +1105,16 @@ final class CombatScene: SKScene {
 
         if let texture =
             textureIfAvailable(
-                named: "hunter_idle_0"
+                named:
+                    "hunter_idle_0"
             ) {
-
             let sprite =
                 SKSpriteNode(
                     texture: texture
                 )
 
-            sprite.texture?.filteringMode =
+            sprite.texture?
+                .filteringMode =
                 .nearest
 
             sprite.size =
@@ -1228,37 +1236,34 @@ final class CombatScene: SKScene {
             hood
         )
 
-        hunterEyesNode.removeAllChildren()
+        hunterEyesNode
+            .removeAllChildren()
+
         hunterEyesNode.position =
             CGPoint(
                 x: 2,
                 y: 31
             )
 
-        let leftEye =
-            makeEye(
-                color:
-                    UIColor(
-                        red: 0.33,
-                        green: 0.91,
-                        blue: 0.47,
-                        alpha: 1
-                    )
+        let eyeColor =
+            UIColor(
+                red: 0.33,
+                green: 0.91,
+                blue: 0.47,
+                alpha: 1
             )
 
-        leftEye.position.x = -5
+        let leftEye =
+            makeEye(
+                color: eyeColor
+            )
 
         let rightEye =
             makeEye(
-                color:
-                    UIColor(
-                        red: 0.33,
-                        green: 0.91,
-                        blue: 0.47,
-                        alpha: 1
-                    )
+                color: eyeColor
             )
 
+        leftEye.position.x = -5
         rightEye.position.x = 5
 
         hunterEyesNode.addChild(
@@ -1277,11 +1282,7 @@ final class CombatScene: SKScene {
             CGMutablePath()
 
         swordPath.move(
-            to:
-                CGPoint(
-                    x: 0,
-                    y: 0
-                )
+            to: .zero
         )
 
         swordPath.addLine(
@@ -1369,10 +1370,10 @@ final class CombatScene: SKScene {
     private func refreshEnemyVisual(
         _ enemy: EnemyDefinition
     ) {
-        currentEnemyID = enemy.id
+        currentEnemyID =
+            enemy.id
 
         enemyNode.removeAllChildren()
-
         enemyAuraNode.removeAllChildren()
 
         if let texture =
@@ -1382,16 +1383,16 @@ final class CombatScene: SKScene {
                         enemy.id
                     )
             ) {
-
             let sprite =
                 SKSpriteNode(
                     texture: texture
                 )
 
-            sprite.texture?.filteringMode =
+            sprite.texture?
+                .filteringMode =
                 .nearest
 
-            let targetSize =
+            sprite.size =
                 enemy.isBoss
                 ? CGSize(
                     width: 192,
@@ -1402,12 +1403,9 @@ final class CombatScene: SKScene {
                     height: 128
                 )
 
-            sprite.size = targetSize
-
             enemyNode.addChild(
                 sprite
             )
-
         } else {
             buildEnemyPlaceholder(
                 enemy
@@ -1533,19 +1531,22 @@ final class CombatScene: SKScene {
         let scale: CGFloat =
             enemy.isBoss
             ? 1.45
-            : 1.0
+            : 1
 
         let body =
             SKShapeNode(
                 rectOf:
                     CGSize(
-                        width: 42 * scale,
-                        height: 72 * scale
+                        width:
+                            42 * scale,
+                        height:
+                            72 * scale
                     ),
                 cornerRadius: 10
             )
 
-        body.fillColor = bodyColor
+        body.fillColor =
+            bodyColor
 
         body.strokeColor =
             UIColor(
@@ -1568,8 +1569,12 @@ final class CombatScene: SKScene {
                     16 * scale
             )
 
-        head.fillColor = bodyColor
-        head.strokeColor = body.strokeColor
+        head.fillColor =
+            bodyColor
+
+        head.strokeColor =
+            body.strokeColor
+
         head.lineWidth = 3
         head.isAntialiased = false
 
@@ -1592,14 +1597,18 @@ final class CombatScene: SKScene {
 
         leftEye.position =
             CGPoint(
-                x: -6 * scale,
-                y: 47 * scale
+                x:
+                    -6 * scale,
+                y:
+                    47 * scale
             )
 
         rightEye.position =
             CGPoint(
-                x: 6 * scale,
-                y: 47 * scale
+                x:
+                    6 * scale,
+                y:
+                    47 * scale
             )
 
         enemyNode.addChild(
@@ -1610,7 +1619,9 @@ final class CombatScene: SKScene {
             rightEye
         )
 
-        if enemy.id == .cursedHound {
+        if enemy.id
+            == .cursedHound {
+
             body.xScale = 1.45
             body.yScale = 0.62
             body.position.y = -17
@@ -1634,20 +1645,24 @@ final class CombatScene: SKScene {
                 )
         }
 
-        if enemy.id == .fallenKnight {
+        if enemy.id
+            == .fallenKnight {
             body.xScale = 1.35
         }
 
-        if enemy.id == .swampGhoul {
+        if enemy.id
+            == .swampGhoul {
             body.yScale = 1.15
             body.zRotation = -0.10
         }
 
-        if enemy.id == .shadowCultist {
+        if enemy.id
+            == .shadowCultist {
             body.yScale = 1.20
         }
 
-        if enemy.id == .abyssDemon {
+        if enemy.id
+            == .abyssDemon {
             addDemonHorns(
                 scale: scale
             )
@@ -1657,7 +1672,10 @@ final class CombatScene: SKScene {
     private func addDemonHorns(
         scale: CGFloat
     ) {
-        for direction in [-1.0, 1.0] {
+        for direction in [
+            -1.0,
+            1.0
+        ] {
             let path =
                 CGMutablePath()
 
@@ -1665,9 +1683,14 @@ final class CombatScene: SKScene {
                 to:
                     CGPoint(
                         x:
-                            CGFloat(direction)
-                            * 10 * scale,
-                        y: 56 * scale
+                            CGFloat(
+                                direction
+                            )
+                            * 10
+                            * scale,
+                        y:
+                            56
+                            * scale
                     )
             )
 
@@ -1675,9 +1698,14 @@ final class CombatScene: SKScene {
                 to:
                     CGPoint(
                         x:
-                            CGFloat(direction)
-                            * 26 * scale,
-                        y: 84 * scale
+                            CGFloat(
+                                direction
+                            )
+                            * 26
+                            * scale,
+                        y:
+                            84
+                            * scale
                     )
             )
 
@@ -1719,7 +1747,6 @@ final class CombatScene: SKScene {
             )
 
         aura.strokeColor = .clear
-
         aura.zPosition = -5
 
         enemyAuraNode.addChild(
@@ -1772,16 +1799,10 @@ final class CombatScene: SKScene {
 
     private func layoutScene() {
         hunterNode.position =
-            CGPoint(
-                x: size.width * 0.29,
-                y: size.height * 0.31
-            )
+            hunterBattlePosition()
 
         enemyNode.position =
-            CGPoint(
-                x: size.width * 0.72,
-                y: size.height * 0.31
-            )
+            enemyBattlePosition()
 
         hunterNode.setScale(
             max(
@@ -1814,7 +1835,8 @@ final class CombatScene: SKScene {
             return
         }
 
-        audioManager.startCombatAudio()
+        audioManager
+            .startCombatAudio()
     }
 
     private func handleEncounterActivated(
@@ -1850,7 +1872,23 @@ final class CombatScene: SKScene {
         enemyNode.isHidden = false
         enemyNode.removeAllActions()
 
+        // IMPORTANT:
+        // Reset every visual property changed
+        // by the previous enemy's death animation.
+        enemyNode.zRotation = 0
         enemyNode.alpha = 0
+
+        enemyNode.setScale(
+            enemy.isBoss
+            ? max(
+                1.20,
+                size.height / 700
+            )
+            : max(
+                1.10,
+                size.height / 780
+            )
+        )
 
         let finalPosition =
             enemyBattlePosition()
@@ -1867,7 +1905,8 @@ final class CombatScene: SKScene {
                 y:
                     finalPosition.y
                     - (
-                        enemy.id == .cursedHound
+                        enemy.id
+                        == .cursedHound
                         ? 8
                         : 0
                     )
@@ -1882,15 +1921,19 @@ final class CombatScene: SKScene {
             .group(
                 [
                     .fadeIn(
-                        withDuration: duration
+                        withDuration:
+                            duration
                     ),
                     .move(
-                        to: finalPosition,
-                        duration: duration
+                        to:
+                            finalPosition,
+                        duration:
+                            duration
                     )
                 ]
             ),
-            withKey: "spawn"
+            withKey:
+                "spawn"
         )
 
         audioManager.playEnemySpawn(
@@ -1939,13 +1982,8 @@ final class CombatScene: SKScene {
         left.position.x = -6
         right.position.x = 6
 
-        eyes.addChild(
-            left
-        )
-
-        eyes.addChild(
-            right
-        )
+        eyes.addChild(left)
+        eyes.addChild(right)
 
         effectsLayer.addChild(
             eyes
@@ -1993,18 +2031,13 @@ final class CombatScene: SKScene {
         let original =
             hunterBattlePosition()
 
-        let attackDirection: CGFloat =
-            1
-
         let movement: CGFloat
 
         switch resolution.attackKind {
         case .normal:
             movement = 10
-
         case .strong:
             movement = 16
-
         case .critical:
             movement = 24
         }
@@ -2013,10 +2046,10 @@ final class CombatScene: SKScene {
             SKAction.moveTo(
                 x:
                     original.x
-                    + movement
-                    * attackDirection,
+                    + movement,
                 duration:
-                    resolution.attackDuration
+                    resolution
+                        .attackDuration
                     * 0.40
             )
 
@@ -2025,9 +2058,11 @@ final class CombatScene: SKScene {
 
         let moveBack =
             SKAction.moveTo(
-                x: original.x,
+                x:
+                    original.x,
                 duration:
-                    resolution.attackDuration
+                    resolution
+                        .attackDuration
                     * 0.45
             )
 
@@ -2041,7 +2076,8 @@ final class CombatScene: SKScene {
                     moveBack
                 ]
             ),
-            withKey: "attack"
+            withKey:
+                "attack"
         )
 
         animateSword(
@@ -2056,13 +2092,16 @@ final class CombatScene: SKScene {
     private func animateSword(
         _ resolution: CombatResolution
     ) {
-        guard let sword =
-                hunterSwordNode else {
+        guard
+            let sword =
+                hunterSwordNode
+        else {
             return
         }
 
         sword.removeAction(
-            forKey: "swordAttack"
+            forKey:
+                "swordAttack"
         )
 
         let startAngle =
@@ -2071,44 +2110,47 @@ final class CombatScene: SKScene {
         let targetAngle: CGFloat
 
         switch resolution.animation {
-
         case .attack1:
             targetAngle = 0.85
-
         case .attack2:
             targetAngle = -1.05
-
         case .attack3:
             targetAngle = 0.10
-
         case .strong:
             targetAngle = 1.15
-
         case .critical:
             targetAngle = 1.45
         }
 
         let slash =
             SKAction.rotate(
-                toAngle: targetAngle,
+                toAngle:
+                    targetAngle,
                 duration:
-                    resolution.attackDuration
+                    resolution
+                        .attackDuration
                     * 0.48,
-                shortestUnitArc: true
+                shortestUnitArc:
+                    true
             )
 
-        slash.timingMode = .easeIn
+        slash.timingMode =
+            .easeIn
 
         let recover =
             SKAction.rotate(
-                toAngle: startAngle,
+                toAngle:
+                    startAngle,
                 duration:
-                    resolution.attackDuration
+                    resolution
+                        .attackDuration
                     * 0.42,
-                shortestUnitArc: true
+                shortestUnitArc:
+                    true
             )
 
-        recover.timingMode = .easeOut
+        recover.timingMode =
+            .easeOut
 
         sword.run(
             .sequence(
@@ -2117,13 +2159,15 @@ final class CombatScene: SKScene {
                     recover
                 ]
             ),
-            withKey: "swordAttack"
+            withKey:
+                "swordAttack"
         )
     }
 
     private func animateCriticalEyes() {
         hunterEyesNode.removeAction(
-            forKey: "criticalEyes"
+            forKey:
+                "criticalEyes"
         )
 
         hunterEyesNode.run(
@@ -2158,18 +2202,23 @@ final class CombatScene: SKScene {
                     )
                 ]
             ),
-            withKey: "criticalEyes"
+            withKey:
+                "criticalEyes"
         )
     }
 
     private func handleAttackFinished(
         _ resolution: CombatResolution
     ) {
-        if !hunterController.isAttacking {
+        if !hunterController
+            .isAttacking {
+
             hunterNode.run(
                 .move(
-                    to: hunterBattlePosition(),
-                    duration: 0.08
+                    to:
+                        hunterBattlePosition(),
+                    duration:
+                        0.08
                 )
             )
         }
@@ -2194,7 +2243,8 @@ final class CombatScene: SKScene {
 
         shakeScene(
             pixels:
-                resolution.sceneShakePixels
+                resolution
+                    .sceneShakePixels
         )
 
         audioManager.playEnemyHit(
@@ -2304,10 +2354,12 @@ final class CombatScene: SKScene {
         slash.position =
             CGPoint(
                 x:
-                    enemyNode.position.x
+                    enemyNode
+                        .position.x
                     - 12,
                 y:
-                    enemyNode.position.y
+                    enemyNode
+                        .position.y
                     + 20
             )
 
@@ -2414,14 +2466,14 @@ final class CombatScene: SKScene {
                 y: 36,
                 duration:
                     GameConstants
-                    .damageNumberDuration
+                        .damageNumberDuration
             )
 
         let fade =
             SKAction.fadeOut(
                 withDuration:
                     GameConstants
-                    .damageNumberDuration
+                        .damageNumberDuration
             )
 
         label.run(
@@ -2447,10 +2499,8 @@ final class CombatScene: SKScene {
         switch resolution.attackKind {
         case .normal:
             count = 4
-
         case .strong:
             count = 7
-
         case .critical:
             count = 10
         }
@@ -2486,8 +2536,11 @@ final class CombatScene: SKScene {
                     alpha: 1
                 )
 
-            particle.strokeColor = .clear
-            particle.isAntialiased = false
+            particle.strokeColor =
+                .clear
+
+            particle.isAntialiased =
+                false
 
             particle.position =
                 CGPoint(
@@ -2521,10 +2574,12 @@ final class CombatScene: SKScene {
                                         CGFloat.random(
                                             in: -12...28
                                         ),
-                                    duration: 0.18
+                                    duration:
+                                        0.18
                                 ),
                                 .fadeOut(
-                                    withDuration: 0.18
+                                    withDuration:
+                                        0.18
                                 )
                             ]
                         ),
@@ -2535,7 +2590,7 @@ final class CombatScene: SKScene {
         }
     }
 
-    // MARK: - Enemy hurt
+    // MARK: - Hurt
 
     private func handleEnemyHurt(
         _ enemy: EnemyDefinition,
@@ -2550,10 +2605,8 @@ final class CombatScene: SKScene {
         switch attackKind {
         case .normal:
             amount = 3
-
         case .strong:
             amount = 6
-
         case .critical:
             amount = 9
         }
@@ -2568,15 +2621,19 @@ final class CombatScene: SKScene {
                         x:
                             original.x
                             + amount,
-                        duration: 0.05
+                        duration:
+                            0.05
                     ),
                     .moveTo(
-                        x: original.x,
-                        duration: 0.09
+                        x:
+                            original.x,
+                        duration:
+                            0.09
                     )
                 ]
             ),
-            withKey: "hurt"
+            withKey:
+                "hurt"
         )
     }
 
@@ -2601,16 +2658,19 @@ final class CombatScene: SKScene {
                             [
                                 .scaleY(
                                     to: 0.45,
-                                    duration: 0.30
+                                    duration:
+                                        0.30
                                 ),
                                 .fadeAlpha(
                                     to: 0.55,
-                                    duration: 0.30
+                                    duration:
+                                        0.30
                                 )
                             ]
                         ),
                         .fadeOut(
-                            withDuration: 0.30
+                            withDuration:
+                                0.30
                         )
                     ]
                 )
@@ -2623,10 +2683,12 @@ final class CombatScene: SKScene {
                         .moveBy(
                             x: 16,
                             y: -18,
-                            duration: 0.55
+                            duration:
+                                0.55
                         ),
                         .fadeOut(
-                            withDuration: 0.65
+                            withDuration:
+                                0.65
                         )
                     ]
                 )
@@ -2637,16 +2699,20 @@ final class CombatScene: SKScene {
                 .sequence(
                     [
                         .rotate(
-                            byAngle: -0.18,
-                            duration: 0.25
+                            byAngle:
+                                -0.18,
+                            duration:
+                                0.25
                         ),
                         .moveBy(
                             x: 0,
                             y: -15,
-                            duration: 0.25
+                            duration:
+                                0.25
                         ),
                         .fadeOut(
-                            withDuration: 0.28
+                            withDuration:
+                                0.28
                         )
                     ]
                 )
@@ -2659,10 +2725,12 @@ final class CombatScene: SKScene {
                         .moveBy(
                             x: 0,
                             y: -30,
-                            duration: 0.70
+                            duration:
+                                0.70
                         ),
                         .fadeOut(
-                            withDuration: 0.70
+                            withDuration:
+                                0.70
                         )
                     ]
                 )
@@ -2674,10 +2742,12 @@ final class CombatScene: SKScene {
                     [
                         .scale(
                             to: 0.86,
-                            duration: 0.75
+                            duration:
+                                0.75
                         ),
                         .fadeOut(
-                            withDuration: 0.82
+                            withDuration:
+                                0.82
                         )
                     ]
                 )
@@ -2700,7 +2770,8 @@ final class CombatScene: SKScene {
             .sequence(
                 [
                     .wait(
-                        forDuration: 0.10
+                        forDuration:
+                            0.10
                     ),
                     .group(
                         [
@@ -2708,16 +2779,19 @@ final class CombatScene: SKScene {
                                 to:
                                     originalScale
                                     * 1.03,
-                                duration: 0.18
+                                duration:
+                                    0.18
                             ),
                             .fadeAlpha(
                                 to: 0.85,
-                                duration: 0.18
+                                duration:
+                                    0.18
                             )
                         ]
                     ),
                     .wait(
-                        forDuration: 0.18
+                        forDuration:
+                            0.18
                     ),
                     .group(
                         [
@@ -2725,10 +2799,12 @@ final class CombatScene: SKScene {
                                 to:
                                     originalScale
                                     * 0.92,
-                                duration: 0.65
+                                duration:
+                                    0.65
                             ),
                             .fadeOut(
-                                withDuration: 0.75
+                                withDuration:
+                                    0.75
                             )
                         ]
                     )
@@ -2740,21 +2816,25 @@ final class CombatScene: SKScene {
             .sequence(
                 [
                     .wait(
-                        forDuration: 0.42
+                        forDuration:
+                            0.42
                     ),
                     .run {
                         [weak self] in
 
-                        self?.audioManager
+                        self?
+                            .audioManager
                             .playBossAsh()
                     },
                     .wait(
-                        forDuration: 0.48
+                        forDuration:
+                            0.48
                     ),
                     .run {
                         [weak self] in
 
-                        self?.audioManager
+                        self?
+                            .audioManager
                             .playBossSwordFall()
                     }
                 ]
@@ -2890,10 +2970,12 @@ final class CombatScene: SKScene {
                                         CGFloat.random(
                                             in: 18...70
                                         ),
-                                    duration: duration
+                                    duration:
+                                        duration
                                 ),
                                 .fadeOut(
-                                    withDuration: duration
+                                    withDuration:
+                                        duration
                                 )
                             ]
                         ),
@@ -2937,13 +3019,16 @@ final class CombatScene: SKScene {
             .sequence(
                 [
                     .fadeIn(
-                        withDuration: 0.20
+                        withDuration:
+                            0.20
                     ),
                     .wait(
-                        forDuration: 0.35
+                        forDuration:
+                            0.35
                     ),
                     .fadeOut(
-                        withDuration: 0.55
+                        withDuration:
+                            0.55
                     ),
                     .removeFromParent()
                 ]
@@ -2962,13 +3047,16 @@ final class CombatScene: SKScene {
             phase
         )
 
-        guard let aura =
-                enemyAuraNode.children.first else {
+        guard
+            let aura =
+                enemyAuraNode
+                    .children
+                    .first
+        else {
             return
         }
 
         switch phase {
-
         case .calm:
             aura.alpha = 0.08
 
@@ -3015,14 +3103,14 @@ final class CombatScene: SKScene {
         boss: Bool
     ) {
         let coinCount =
-            boss
-            ? 6
-            : 3
+            boss ? 6 : 3
 
         let target =
             CGPoint(
                 x: 38,
-                y: size.height - 46
+                y:
+                    size.height
+                    - 46
             )
 
         for index in 0..<coinCount {
@@ -3082,7 +3170,8 @@ final class CombatScene: SKScene {
                         .run {
                             [weak self] in
 
-                            self?.audioManager
+                            self?
+                                .audioManager
                                 .playCoinFlight()
                         },
                         .group(
@@ -3152,10 +3241,12 @@ final class CombatScene: SKScene {
                             .moveBy(
                                 x: 0,
                                 y: 28,
-                                duration: 0.48
+                                duration:
+                                    0.48
                             ),
                             .fadeOut(
-                                withDuration: 0.48
+                                withDuration:
+                                    0.48
                             )
                         ]
                     ),
@@ -3194,13 +3285,16 @@ final class CombatScene: SKScene {
 
         label.position =
             CGPoint(
-                x: size.width * 0.5,
-                y: size.height * 0.55
+                x:
+                    size.width
+                    * 0.5,
+                y:
+                    size.height
+                    * 0.55
             )
 
         label.alpha = 0
         label.setScale(0.92)
-
         label.zPosition = 200
 
         effectsLayer.addChild(
@@ -3213,19 +3307,23 @@ final class CombatScene: SKScene {
                     .group(
                         [
                             .fadeIn(
-                                withDuration: 0.16
+                                withDuration:
+                                    0.16
                             ),
                             .scale(
-                                to: 1.0,
-                                duration: 0.16
+                                to: 1,
+                                duration:
+                                    0.16
                             )
                         ]
                     ),
                     .wait(
-                        forDuration: 0.34
+                        forDuration:
+                            0.34
                     ),
                     .fadeOut(
-                        withDuration: 0.20
+                        withDuration:
+                            0.20
                     ),
                     .removeFromParent()
                 ]
@@ -3233,7 +3331,7 @@ final class CombatScene: SKScene {
         )
     }
 
-    // MARK: - Scene shake
+    // MARK: - Shake
 
     private func shakeScene(
         pixels: Int
@@ -3243,12 +3341,14 @@ final class CombatScene: SKScene {
         }
 
         worldNode.removeAction(
-            forKey: "sceneShake"
+            forKey:
+                "sceneShake"
         )
 
         worldNode.position = .zero
 
-        var actions: [SKAction] = []
+        var actions:
+            [SKAction] = []
 
         for _ in 0..<4 {
             actions.append(
@@ -3256,11 +3356,16 @@ final class CombatScene: SKScene {
                     x:
                         CGFloat.random(
                             in:
-                                -CGFloat(pixels)
+                                -CGFloat(
+                                    pixels
+                                )
                                 ...
-                                CGFloat(pixels)
+                                CGFloat(
+                                    pixels
+                                )
                         ),
-                    duration: 0.025
+                    duration:
+                        0.025
                 )
             )
         }
@@ -3268,7 +3373,8 @@ final class CombatScene: SKScene {
         actions.append(
             .move(
                 to: .zero,
-                duration: 0.035
+                duration:
+                    0.035
             )
         )
 
@@ -3276,14 +3382,16 @@ final class CombatScene: SKScene {
             .sequence(
                 actions
             ),
-            withKey: "sceneShake"
+            withKey:
+                "sceneShake"
         )
     }
 
-    // MARK: - Runtime sync
+    // MARK: - Runtime
 
     private func syncRuntimeVisuals() {
-        if hunterController.eyeFlareActive {
+        if hunterController
+            .eyeFlareActive {
             hunterEyesNode.alpha = 1
         }
 
@@ -3293,7 +3401,7 @@ final class CombatScene: SKScene {
         }
     }
 
-    // MARK: - Resource lookup
+    // MARK: - Resources
 
     private func textureIfAvailable(
         named name: String
@@ -3304,19 +3412,25 @@ final class CombatScene: SKScene {
         ]
 
         for ext in extensions {
-            guard let url =
+            guard
+                let url =
                     Bundle.main.url(
-                        forResource: name,
-                        withExtension: ext
-                    ) else {
+                        forResource:
+                            name,
+                        withExtension:
+                            ext
+                    )
+            else {
                 continue
             }
 
-            guard let image =
+            guard
+                let image =
                     UIImage(
                         contentsOfFile:
                             url.path
-                    ) else {
+                    )
+            else {
                 continue
             }
 
@@ -3338,28 +3452,22 @@ final class CombatScene: SKScene {
         _ id: EnemyID
     ) -> String {
         switch id {
-
         case .graveSkeleton:
             return "skeleton_idle_0"
-
         case .cursedHound:
             return "hound_idle_0"
-
         case .fallenKnight:
             return "knight_idle_0"
-
         case .swampGhoul:
             return "ghoul_idle_0"
-
         case .shadowCultist:
             return "cultist_idle_0"
-
         case .abyssDemon:
             return "abyss_demon_idle_0"
         }
     }
 
-    // MARK: - Enemy colors
+    // MARK: - Colors
 
     private func enemyEyeColor(
         _ id: EnemyID
@@ -3422,8 +3530,12 @@ final class CombatScene: SKScene {
         -> CGPoint {
 
         CGPoint(
-            x: size.width * 0.29,
-            y: size.height * 0.31
+            x:
+                size.width
+                * 0.29,
+            y:
+                size.height
+                * 0.31
         )
     }
 
@@ -3431,17 +3543,20 @@ final class CombatScene: SKScene {
         -> CGPoint {
 
         CGPoint(
-            x: size.width * 0.72,
-            y: size.height * 0.31
+            x:
+                size.width
+                * 0.72,
+            y:
+                size.height
+                * 0.31
         )
     }
 
-    // MARK: - Spawn duration
+    // MARK: - Spawn timing
 
     private func spawnDuration(
         _ enemy: EnemyDefinition
     ) -> TimeInterval {
-
         switch enemy.id {
 
         case .graveSkeleton:
