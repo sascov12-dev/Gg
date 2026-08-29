@@ -777,7 +777,7 @@ struct GameView: View {
                     design: .serif
                 )
             )
-            .tracking(0.6)
+            .kerning(0.6)
             .frame(
                 maxWidth: .infinity
             )
@@ -815,7 +815,7 @@ struct GameView: View {
                         design: .serif
                     )
                 )
-                .tracking(1.4)
+                .kerning(1.4)
                 .foregroundColor(
                     Color(
                         red: 0.78,
@@ -1061,7 +1061,7 @@ struct GameView: View {
                             design: .serif
                         )
                     )
-                    .tracking(0.8)
+                    .kerning(0.8)
                     .foregroundColor(
                         Color.white
                             .opacity(0.44)
@@ -1078,7 +1078,7 @@ struct GameView: View {
                         design: .serif
                     )
                 )
-                .tracking(1.5)
+                .kerning(1.5)
                 .foregroundColor(
                     Color(
                         red: 0.77,
@@ -1209,7 +1209,7 @@ private struct EnemyHealthBarView: View {
                         design: .serif
                     )
                 )
-                .tracking(
+                .kerning(
                     isBoss
                     ? 0.7
                     : 0.3
@@ -1479,7 +1479,7 @@ private struct DarkMetalButtonStyle:
                     design: .serif
                 )
             )
-            .tracking(0.5)
+            .kerning(0.5)
             .foregroundColor(
                 emphasized
                 ? Color(
