@@ -37,6 +37,7 @@ final class CombatScene: SKScene {
 
     private var hunterSwordNode: SKShapeNode?
     private var hunterSpriteNode: SKSpriteNode?
+    private var enemySpriteNode: SKSpriteNode?
 
     // MARK: - Runtime
 
@@ -1102,50 +1103,50 @@ final class CombatScene: SKScene {
     // MARK: - Hunter
 
     private func buildHunter() {
-    hunterNode.removeAllChildren()
+        hunterNode.removeAllChildren()
 
-    hunterSwordNode = nil
-    hunterSpriteNode = nil
+        hunterSwordNode = nil
+        hunterSpriteNode = nil
 
-    hunterEyesNode.removeAllActions()
-    hunterEyesNode.removeAllChildren()
+        hunterEyesNode.removeAllActions()
+        hunterEyesNode.removeAllChildren()
 
-    let frames =
-        HunterSpriteAssets.idleFrames
+        let frames =
+            HunterSpriteAssets.idleFrames
 
-    guard
-        let firstFrame =
-            frames.first
-    else {
-        buildHunterPlaceholder()
-        return
+        guard
+            let firstFrame =
+                frames.first
+        else {
+            buildHunterPlaceholder()
+            return
+        }
+
+        let sprite =
+            SKSpriteNode(
+                texture: firstFrame
+            )
+
+        sprite.texture?
+            .filteringMode =
+            .nearest
+
+        sprite.size =
+            CGSize(
+                width: 128,
+                height: 128
+            )
+
+        sprite.zPosition = 5
+
+        hunterSpriteNode = sprite
+
+        hunterNode.addChild(
+            sprite
+        )
+
+        startHunterIdleAnimation()
     }
-
-    let sprite =
-        SKSpriteNode(
-            texture: firstFrame
-        )
-
-    sprite.texture?
-        .filteringMode =
-        .nearest
-
-    sprite.size =
-        CGSize(
-            width: 128,
-            height: 128
-        )
-
-    sprite.zPosition = 5
-
-    hunterSpriteNode = sprite
-
-    hunterNode.addChild(
-        sprite
-    )
-
-    startHunterIdleAnimation()
-}
 
     private func buildHunterPlaceholder() {
         let cloakPath =
@@ -1389,8 +1390,43 @@ final class CombatScene: SKScene {
 
         enemyNode.removeAllChildren()
         enemyAuraNode.removeAllChildren()
+        enemySpriteNode = nil
 
-        if let texture =
+        if enemy.id == .graveSkeleton,
+           let firstFrame =
+            EnemySpriteAssets
+                .graveSkeletonIdleFrames
+                .first {
+
+            let sprite =
+                SKSpriteNode(
+                    texture: firstFrame
+                )
+
+            sprite.texture?
+                .filteringMode =
+                .nearest
+
+            // Source frames are 99x46.
+            // Keep that aspect ratio, do not stretch to a square.
+            sprite.size =
+                CGSize(
+                    width: 178,
+                    height: 83
+                )
+
+            sprite.zPosition = 5
+            sprite.position.y = 6
+
+            enemySpriteNode = sprite
+
+            enemyNode.addChild(
+                sprite
+            )
+
+            startGraveSkeletonIdleAnimation()
+
+        } else if let texture =
             textureIfAvailable(
                 named:
                     enemyTextureName(
@@ -1429,6 +1465,115 @@ final class CombatScene: SKScene {
         if enemy.isBoss {
             buildBossAura()
         }
+    }
+
+    private func startGraveSkeletonIdleAnimation() {
+        guard
+            currentEnemyID == .graveSkeleton,
+            let sprite = enemySpriteNode
+        else {
+            return
+        }
+
+        let frames =
+            EnemySpriteAssets
+                .graveSkeletonIdleFrames
+
+        guard !frames.isEmpty else {
+            return
+        }
+
+        sprite.removeAction(
+            forKey: "enemyTexture"
+        )
+
+        sprite.run(
+            .repeatForever(
+                .animate(
+                    with: frames,
+                    timePerFrame: 0.12,
+                    resize: false,
+                    restore: false
+                )
+            ),
+            withKey: "enemyTexture"
+        )
+    }
+
+    private func animateGraveSkeletonHit() {
+        guard
+            currentEnemyID == .graveSkeleton,
+            let sprite = enemySpriteNode
+        else {
+            return
+        }
+
+        let frames =
+            EnemySpriteAssets
+                .graveSkeletonHitFrames
+
+        guard !frames.isEmpty else {
+            return
+        }
+
+        sprite.removeAction(
+            forKey: "enemyTexture"
+        )
+
+        sprite.run(
+            .sequence(
+                [
+                    .animate(
+                        with: frames,
+                        timePerFrame: 0.07,
+                        resize: false,
+                        restore: false
+                    ),
+                    .run {
+                        [weak self] in
+
+                        self?
+                            .startGraveSkeletonIdleAnimation()
+                    }
+                ]
+            ),
+            withKey: "enemyTexture"
+        )
+    }
+
+    private func animateGraveSkeletonDeath() {
+        guard
+            currentEnemyID == .graveSkeleton,
+            let sprite = enemySpriteNode
+        else {
+            return
+        }
+
+        let frames =
+            EnemySpriteAssets
+                .graveSkeletonDeathFrames
+
+        guard !frames.isEmpty else {
+            return
+        }
+
+        sprite.removeAction(
+            forKey: "enemyTexture"
+        )
+
+        let frameTime: TimeInterval =
+            0.65
+            / Double(frames.count)
+
+        sprite.run(
+            .animate(
+                with: frames,
+                timePerFrame: frameTime,
+                resize: false,
+                restore: false
+            ),
+            withKey: "enemyTexture"
+        )
     }
 
     private func buildEnemyPlaceholder(
@@ -1886,9 +2031,7 @@ final class CombatScene: SKScene {
         enemyNode.isHidden = false
         enemyNode.removeAllActions()
 
-        // IMPORTANT:
-        // Reset every visual property changed
-        // by the previous enemy's death animation.
+        // Reset properties changed by previous death animation.
         enemyNode.zRotation = 0
         enemyNode.alpha = 0
 
@@ -2033,12 +2176,11 @@ final class CombatScene: SKScene {
         animateHunterAttack(
             resolution
         )
-    
 
         showHunterAttackTrail(
             resolution
         )
-}
+    }
 
     private func animateHunterAttack(
         _ resolution: CombatResolution
@@ -2100,8 +2242,8 @@ final class CombatScene: SKScene {
         )
 
         animateHunterSprite(
-    resolution
-)
+            resolution
+        )
 
         animateSword(
             resolution
@@ -2113,111 +2255,111 @@ final class CombatScene: SKScene {
     }
 
     private func startHunterIdleAnimation() {
-    guard
-        let sprite =
-            hunterSpriteNode
-    else {
-        return
-    }
+        guard
+            let sprite =
+                hunterSpriteNode
+        else {
+            return
+        }
 
-    let frames =
-        HunterSpriteAssets.idleFrames
+        let frames =
+            HunterSpriteAssets.idleFrames
 
-    guard !frames.isEmpty else {
-        return
-    }
+        guard !frames.isEmpty else {
+            return
+        }
 
-    sprite.removeAction(
-        forKey: "hunterTexture"
-    )
-
-    sprite.run(
-        .repeatForever(
-            .animate(
-                with: frames,
-                timePerFrame: 0.11,
-                resize: false,
-                restore: false
-            )
-        ),
-        withKey: "hunterTexture"
-    )
-}
-
-private func animateHunterSprite(
-    _ resolution: CombatResolution
-) {
-    guard
-        let sprite =
-            hunterSpriteNode
-    else {
-        return
-    }
-
-    let frames: [SKTexture]
-
-    switch resolution.animation {
-    case .attack1:
-        frames =
-            HunterSpriteAssets
-                .attack1Frames
-
-    case .attack2:
-        frames =
-            HunterSpriteAssets
-                .attack2Frames
-
-    case .attack3:
-        frames =
-            Array(
-                HunterSpriteAssets
-                    .attack1Frames
-                    .reversed()
-            )
-
-    case .strong,
-         .critical:
-        frames =
-            HunterSpriteAssets
-                .strongFrames
-    }
-
-    guard !frames.isEmpty else {
-        startHunterIdleAnimation()
-        return
-    }
-
-    sprite.removeAction(
-        forKey: "hunterTexture"
-    )
-
-    let frameTime =
-        max(
-            0.018,
-            resolution.attackDuration
-            / Double(frames.count)
+        sprite.removeAction(
+            forKey: "hunterTexture"
         )
 
-    sprite.run(
-        .sequence(
-            [
+        sprite.run(
+            .repeatForever(
                 .animate(
                     with: frames,
-                    timePerFrame: frameTime,
+                    timePerFrame: 0.11,
                     resize: false,
                     restore: false
-                ),
-                .run {
-                    [weak self] in
+                )
+            ),
+            withKey: "hunterTexture"
+        )
+    }
 
-                    self?
-                        .startHunterIdleAnimation()
-                }
-            ]
-        ),
-        withKey: "hunterTexture"
-    )
-}
+    private func animateHunterSprite(
+        _ resolution: CombatResolution
+    ) {
+        guard
+            let sprite =
+                hunterSpriteNode
+        else {
+            return
+        }
+
+        let frames: [SKTexture]
+
+        switch resolution.animation {
+        case .attack1:
+            frames =
+                HunterSpriteAssets
+                    .attack1Frames
+
+        case .attack2:
+            frames =
+                HunterSpriteAssets
+                    .attack2Frames
+
+        case .attack3:
+            frames =
+                Array(
+                    HunterSpriteAssets
+                        .attack1Frames
+                        .reversed()
+                )
+
+        case .strong,
+             .critical:
+            frames =
+                HunterSpriteAssets
+                    .strongFrames
+        }
+
+        guard !frames.isEmpty else {
+            startHunterIdleAnimation()
+            return
+        }
+
+        sprite.removeAction(
+            forKey: "hunterTexture"
+        )
+
+        let frameTime =
+            max(
+                0.018,
+                resolution.attackDuration
+                / Double(frames.count)
+            )
+
+        sprite.run(
+            .sequence(
+                [
+                    .animate(
+                        with: frames,
+                        timePerFrame: frameTime,
+                        resize: false,
+                        restore: false
+                    ),
+                    .run {
+                        [weak self] in
+
+                        self?
+                            .startHunterIdleAnimation()
+                    }
+                ]
+            ),
+            withKey: "hunterTexture"
+        )
+    }
 
     private func animateSword(
         _ resolution: CombatResolution
@@ -2355,151 +2497,151 @@ private func animateHunterSprite(
     }
 
     private func showHunterAttackTrail(
-    _ resolution: CombatResolution
-) {
-    let delay =
-        max(
-            0.02,
-            resolution.contactDelay
-            * 0.48
-        )
+        _ resolution: CombatResolution
+    ) {
+        let delay =
+            max(
+                0.02,
+                resolution.contactDelay
+                * 0.48
+            )
 
-    run(
-        .sequence(
-            [
-                .wait(
-                    forDuration:
-                        delay
-                ),
-                .run {
-                    [weak self] in
+        run(
+            .sequence(
+                [
+                    .wait(
+                        forDuration:
+                            delay
+                    ),
+                    .run {
+                        [weak self] in
 
-                    self?
-                        .spawnHunterAirSlash(
-                            resolution
-                        )
-                }
-            ]
+                        self?
+                            .spawnHunterAirSlash(
+                                resolution
+                            )
+                    }
+                ]
+            )
         )
-    )
-}
+    }
+
     private func spawnHunterAirSlash(
-    _ resolution: CombatResolution
-) {
-    let frames =
-        CombatVFXAssets.slashFrames(
-            for:
-                resolution.animation
+        _ resolution: CombatResolution
+    ) {
+        let frames =
+            CombatVFXAssets.slashFrames(
+                for:
+                    resolution.animation
+            )
+
+        guard !frames.isEmpty else {
+            return
+        }
+
+        let slash =
+            SKSpriteNode(
+                texture:
+                    frames[0]
+            )
+
+        slash.zPosition = 240
+
+        let baseSize =
+            CGSize(
+                width: 126,
+                height: 150
+            )
+
+        let scale: CGFloat
+
+        switch resolution.attackKind {
+        case .normal:
+            scale = 1.15
+
+        case .strong:
+            scale = 1.38
+
+        case .critical:
+            scale = 1.55
+        }
+
+        slash.size =
+            CGSize(
+                width:
+                    baseSize.width
+                    * scale,
+                height:
+                    baseSize.height
+                    * scale
+            )
+
+        slash.position =
+            CGPoint(
+                x:
+                    hunterNode.position.x
+                    + 92,
+                y:
+                    hunterNode.position.y
+                    + 54
+            )
+
+        switch resolution.animation {
+        case .attack1:
+            slash.zRotation = -0.10
+
+        case .attack2:
+            slash.zRotation = 0.08
+
+        case .attack3:
+            slash.zRotation = -0.04
+
+        case .strong:
+            slash.zRotation = -0.12
+
+        case .critical:
+            slash.zRotation = -0.14
+        }
+
+        slash.alpha =
+            resolution.isCritical
+            ? 1.0
+            : 0.96
+
+        effectsLayer.addChild(
+            slash
         )
 
-    guard !frames.isEmpty else {
-        return
+        let frameTime: TimeInterval
+
+        switch resolution.attackKind {
+        case .normal:
+            frameTime = 0.040
+
+        case .strong:
+            frameTime = 0.048
+
+        case .critical:
+            frameTime = 0.054
+        }
+
+        slash.run(
+            .sequence(
+                [
+                    .animate(
+                        with: frames,
+                        timePerFrame:
+                            frameTime,
+                        resize: false,
+                        restore: false
+                    ),
+                    .removeFromParent()
+                ]
+            ),
+            withKey:
+                "realSlashFX"
+        )
     }
-
-    let slash =
-        SKSpriteNode(
-            texture:
-                frames[0]
-        )
-
-    slash.zPosition = 240
-
-    let baseSize =
-        CGSize(
-            width: 126,
-            height: 150
-        )
-
-    let scale: CGFloat
-
-    switch resolution.attackKind {
-    case .normal:
-        scale = 1.15
-
-    case .strong:
-        scale = 1.38
-
-    case .critical:
-        scale = 1.55
-    }
-
-    slash.size =
-        CGSize(
-            width:
-                baseSize.width
-                * scale,
-            height:
-                baseSize.height
-                * scale
-        )
-
-    slash.position =
-        CGPoint(
-            x:
-                hunterNode.position.x
-                + 92,
-            y:
-                hunterNode.position.y
-                + 54
-        )
-
-    switch resolution.animation {
-    case .attack1:
-        slash.zRotation = -0.10
-
-    case .attack2:
-        slash.zRotation = 0.08
-
-    case .attack3:
-        slash.zRotation = -0.04
-
-    case .strong:
-        slash.zRotation = -0.12
-
-    case .critical:
-        slash.zRotation = -0.14
-    }
-
-    slash.alpha =
-        resolution.isCritical
-        ? 1.0
-        : 0.96
-
-    effectsLayer.addChild(
-        slash
-    )
-
-    let frameTime: TimeInterval
-
-    switch resolution.attackKind {
-    case .normal:
-        frameTime = 0.040
-
-    case .strong:
-        frameTime = 0.048
-
-    case .critical:
-        frameTime = 0.054
-    }
-
-    slash.run(
-        .sequence(
-            [
-                .animate(
-                    with: frames,
-                    timePerFrame:
-                        frameTime,
-                    resize: false,
-                    restore: false
-                ),
-                .removeFromParent()
-            ]
-        ),
-        withKey:
-            "realSlashFX"
-    )
-}
-
 
     // MARK: - Contact FX
 
@@ -2530,90 +2672,90 @@ private func animateHunterSprite(
                 resolution.attackKind
         )
     }
+
     private func showSlash(
-    _ resolution: CombatResolution
-) {
-    let frames =
-        CombatVFXAssets.hitFrames
+        _ resolution: CombatResolution
+    ) {
+        let frames =
+            CombatVFXAssets.hitFrames
 
-    guard !frames.isEmpty else {
-        return
-    }
+        guard !frames.isEmpty else {
+            return
+        }
 
-    let impact =
-        SKSpriteNode(
-            texture:
-                frames[0]
+        let impact =
+            SKSpriteNode(
+                texture:
+                    frames[0]
+            )
+
+        impact.zPosition = 260
+
+        let side: CGFloat
+
+        switch resolution.attackKind {
+        case .normal:
+            side = 58
+
+        case .strong:
+            side = 72
+
+        case .critical:
+            side = 86
+        }
+
+        impact.size =
+            CGSize(
+                width: side,
+                height: side
+            )
+
+        impact.position =
+            CGPoint(
+                x:
+                    enemyNode.position.x
+                    - 8,
+                y:
+                    enemyNode.position.y
+                    + 24
+            )
+
+        impact.alpha = 1.0
+
+        effectsLayer.addChild(
+            impact
         )
 
-    impact.zPosition = 260
+        let frameTime: TimeInterval
 
-    let side: CGFloat
+        switch resolution.attackKind {
+        case .normal:
+            frameTime = 0.024
 
-    switch resolution.attackKind {
-    case .normal:
-        side = 58
+        case .strong:
+            frameTime = 0.028
 
-    case .strong:
-        side = 72
+        case .critical:
+            frameTime = 0.032
+        }
 
-    case .critical:
-        side = 86
-    }
-
-    impact.size =
-        CGSize(
-            width: side,
-            height: side
+        impact.run(
+            .sequence(
+                [
+                    .animate(
+                        with: frames,
+                        timePerFrame:
+                            frameTime,
+                        resize: false,
+                        restore: false
+                    ),
+                    .removeFromParent()
+                ]
+            ),
+            withKey:
+                "realHitFX"
         )
-
-    impact.position =
-        CGPoint(
-            x:
-                enemyNode.position.x
-                - 8,
-            y:
-                enemyNode.position.y
-                + 24
-        )
-
-    impact.alpha = 1.0
-
-    effectsLayer.addChild(
-        impact
-    )
-
-    let frameTime: TimeInterval
-
-    switch resolution.attackKind {
-    case .normal:
-        frameTime = 0.024
-
-    case .strong:
-        frameTime = 0.028
-
-    case .critical:
-        frameTime = 0.032
     }
-
-    impact.run(
-        .sequence(
-            [
-                .animate(
-                    with: frames,
-                    timePerFrame:
-                        frameTime,
-                    resize: false,
-                    restore: false
-                ),
-                .removeFromParent()
-            ]
-        ),
-        withKey:
-            "realHitFX"
-    )
-}
-
 
     private func showDamageNumber(
         _ resolution: CombatResolution
@@ -2825,6 +2967,10 @@ private func animateHunterSprite(
         _ enemy: EnemyDefinition,
         attackKind: AttackKind
     ) {
+        if enemy.id == .graveSkeleton {
+            animateGraveSkeletonHit()
+        }
+
         enemyNode.removeAction(
             forKey: "hurt"
         )
@@ -2880,26 +3026,16 @@ private func animateHunterSprite(
         switch enemy.id {
 
         case .graveSkeleton:
+            animateGraveSkeletonDeath()
+
             enemyNode.run(
                 .sequence(
                     [
-                        .group(
-                            [
-                                .scaleY(
-                                    to: 0.45,
-                                    duration:
-                                        0.30
-                                ),
-                                .fadeAlpha(
-                                    to: 0.55,
-                                    duration:
-                                        0.30
-                                )
-                            ]
+                        .wait(
+                            forDuration: 0.52
                         ),
                         .fadeOut(
-                            withDuration:
-                                0.30
+                            withDuration: 0.13
                         )
                     ]
                 )
@@ -3836,6 +3972,9 @@ private func animateHunterSprite(
 
         enemyNode.removeAllActions()
         enemyNode.isHidden = true
+
+        enemySpriteNode?
+            .removeAllActions()
 
         hunterNode.removeAllActions()
 
