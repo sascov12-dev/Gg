@@ -41,9 +41,15 @@ final class CombatScene: SKScene {
 
     // MARK: - Runtime
 
+    private enum PendingLaunch {
+        case newGame
+        case continueGame
+    }
+
     private var sceneBuilt = false
     private var lastUpdateTime: TimeInterval = 0
     private var currentEnemyID: EnemyID?
+    private var pendingLaunch: PendingLaunch?
 
     // MARK: - Init
 
@@ -97,6 +103,8 @@ final class CombatScene: SKScene {
         audioManager.applySettings(
             from: gameState.snapshot
         )
+
+        performPendingLaunchIfNeeded()
     }
 
     override func didChangeSize(
@@ -114,6 +122,46 @@ final class CombatScene: SKScene {
     // MARK: - Start
 
     func startNewGame() {
+        guard sceneBuilt,
+              view != nil else {
+            pendingLaunch = .newGame
+            return
+        }
+
+        pendingLaunch = nil
+        performStartNewGame()
+    }
+
+    func continueGame() {
+        guard sceneBuilt,
+              view != nil else {
+            pendingLaunch = .continueGame
+            return
+        }
+
+        pendingLaunch = nil
+        performContinueGame()
+    }
+
+    private func performPendingLaunchIfNeeded() {
+        guard sceneBuilt,
+              view != nil,
+              let pendingLaunch else {
+            return
+        }
+
+        self.pendingLaunch = nil
+
+        switch pendingLaunch {
+        case .newGame:
+            performStartNewGame()
+
+        case .continueGame:
+            performContinueGame()
+        }
+    }
+
+    private func performStartNewGame() {
         lastUpdateTime = 0
 
         audioManager.applySettings(
@@ -123,7 +171,7 @@ final class CombatScene: SKScene {
         encounterDirector.startNewGame()
     }
 
-    func continueGame() {
+    private func performContinueGame() {
         lastUpdateTime = 0
 
         audioManager.applySettings(
@@ -2001,6 +2049,7 @@ final class CombatScene: SKScene {
     private func handleEncounterActivated(
         _ enemy: EnemyDefinition
     ) {
+        enemyNode.isHidden = false
         enemyNode.alpha = 1
 
         enemyNode.position =

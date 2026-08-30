@@ -30,6 +30,7 @@ final class GameSession: ObservableObject {
         Set<AnyCancellable> = []
 
     private var hasStartedScene = false
+    private var suppressProgressSaving = false
 
     // MARK: - Init
 
@@ -94,7 +95,11 @@ final class GameSession: ObservableObject {
         self.combatScene = scene
 
         director.onProgressShouldSave = {
-            progress in
+            [weak self] progress in
+
+            guard self?.suppressProgressSaving != true else {
+                return
+            }
 
             _ = SaveManager.shared.save(
                 progress
@@ -138,54 +143,9 @@ final class GameSession: ObservableObject {
             }
         }
 
-        installCursedForestWhenReady()
-    }
-
-    // MARK: - Cursed Forest
-
-    private func installCursedForestWhenReady(
-        attempt: Int = 0
-    ) {
-        let expectedLayerZ: Set<Int> = [
-            -100, -80, -60, -30,
-            10, 40, 70
-        ]
-
-        let worldIsReady =
-            combatScene.children.contains { node in
-                let zValues =
-                    Set(
-                        node.children.map {
-                            Int($0.zPosition)
-                        }
-                    )
-
-                return expectedLayerZ
-                    .isSubset(
-                        of: zValues
-                    )
-            }
-
-        if worldIsReady {
-            CursedForestEnvironment.install(
-                on: combatScene
-            )
-            return
-        }
-
-        guard attempt < 120 else {
-            return
-        }
-
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + 0.05
-        ) {
-            [weak self] in
-
-            self?.installCursedForestWhenReady(
-                attempt: attempt + 1
-            )
-        }
+        CursedForestEnvironment.install(
+            on: combatScene
+        )
     }
 
     // MARK: - Pause
@@ -239,6 +199,25 @@ final class GameSession: ObservableObject {
         saveNow()
     }
 
+    // MARK: - Reset progress
+
+    func resetProgress() {
+        suppressProgressSaving = true
+
+        // GameState.startNewGame() rebuilds all runtime progress from
+        // GameProgress.fresh while preserving the user's audio toggles.
+        gameState.startNewGame()
+
+        // Remove persistent progress so the next launch starts from
+        // cycle 1, enemy 1, 0 coins and the original base values.
+        _ = saveManager.deleteSave()
+
+        // The GameView is about to leave for the main menu, so make
+        // sure the paused SpriteKit scene cannot write the old save back.
+        combatScene.isPaused = false
+        audioManager.startMenuAudio()
+    }
+
     // MARK: - Coming soon
 
     func playComingSoon() {
@@ -257,7 +236,8 @@ final class GameSession: ObservableObject {
     // MARK: - Save
 
     func saveNow() {
-        guard gameState.hasStartedGame else {
+        guard gameState.hasStartedGame,
+              !suppressProgressSaving else {
             return
         }
 
@@ -299,6 +279,9 @@ struct GameView: View {
 
     @State
     private var comingSoonTitle = ""
+
+    @State
+    private var showResetConfirmation = false
 
     private let onExitToMenu: () -> Void
 
@@ -373,6 +356,29 @@ struct GameView: View {
         )
         .onAppear {
             session.startIfNeeded()
+        }
+        .alert(
+            "СБРОСИТЬ ПРОГРЕСС?",
+            isPresented:
+                $showResetConfirmation
+        ) {
+            Button(
+                "ОТМЕНА",
+                role: .cancel
+            ) {}
+
+            Button(
+                "СБРОСИТЬ",
+                role: .destructive
+            ) {
+                session.resetProgress()
+                showPause = false
+                onExitToMenu()
+            }
+        } message: {
+            Text(
+                "Монеты, цикл и весь игровой прогресс будут сброшены до начальных значений."
+            )
         }
         .onChange(
             of: scenePhase
@@ -894,6 +900,37 @@ struct GameView: View {
                 ) {
                     session.toggleSFX()
                 }
+
+                Button {
+                    showResetConfirmation = true
+                } label: {
+                    Text(
+                        "СБРОСИТЬ ПРОГРЕСС"
+                    )
+                    .font(
+                        .system(
+                            size: 13,
+                            weight: .bold,
+                            design: .serif
+                        )
+                    )
+                    .foregroundColor(
+                        Color(
+                            red: 0.88,
+                            green: 0.36,
+                            blue: 0.34
+                        )
+                    )
+                    .frame(
+                        maxWidth: .infinity
+                    )
+                    .frame(
+                        height: 46
+                    )
+                }
+                .buttonStyle(
+                    DarkMetalButtonStyle()
+                )
 
                 Button {
 
