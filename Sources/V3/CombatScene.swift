@@ -1455,8 +1455,6 @@ final class CombatScene: SKScene {
                 .filteringMode =
                 .nearest
 
-            // Source frames are 99x46.
-            // Keep that aspect ratio, do not stretch to a square.
             sprite.size =
                 CGSize(
                     width: 178,
@@ -1473,6 +1471,39 @@ final class CombatScene: SKScene {
             )
 
             startGraveSkeletonIdleAnimation()
+
+        } else if enemy.id == .cursedHound,
+                  let firstFrame =
+                    EnemySpriteAssets
+                        .cursedHoundIdleFrames
+                        .first {
+
+            let sprite =
+                SKSpriteNode(
+                    texture: firstFrame
+                )
+
+            sprite.texture?
+                .filteringMode =
+                .nearest
+
+            sprite.size =
+                CGSize(
+                    width: 176,
+                    height: 88
+                )
+
+            sprite.zPosition = 5
+            sprite.position.y = -4
+            sprite.xScale = -1
+
+            enemySpriteNode = sprite
+
+            enemyNode.addChild(
+                sprite
+            )
+
+            startCursedHoundIdleAnimation()
 
         } else if let texture =
             textureIfAvailable(
@@ -1621,6 +1652,110 @@ final class CombatScene: SKScene {
                 restore: false
             ),
             withKey: "enemyTexture"
+        )
+    }
+
+    private func startCursedHoundIdleAnimation() {
+        guard
+            currentEnemyID == .cursedHound,
+            let sprite = enemySpriteNode
+        else {
+            return
+        }
+
+        let frames =
+            EnemySpriteAssets
+                .cursedHoundIdleFrames
+
+        guard !frames.isEmpty else {
+            return
+        }
+
+        sprite.removeAction(
+            forKey: "enemyTexture"
+        )
+
+        sprite.run(
+            .repeatForever(
+                .animate(
+                    with: frames,
+                    timePerFrame: 0.12,
+                    resize: false,
+                    restore: false
+                )
+            ),
+            withKey: "enemyTexture"
+        )
+    }
+
+    private func startCursedHoundRunAnimation() {
+        guard
+            currentEnemyID == .cursedHound,
+            let sprite = enemySpriteNode
+        else {
+            return
+        }
+
+        let frames =
+            EnemySpriteAssets
+                .cursedHoundRunFrames
+
+        guard !frames.isEmpty else {
+            startCursedHoundIdleAnimation()
+            return
+        }
+
+        sprite.removeAction(
+            forKey: "enemyTexture"
+        )
+
+        sprite.run(
+            .repeatForever(
+                .animate(
+                    with: frames,
+                    timePerFrame: 0.075,
+                    resize: false,
+                    restore: false
+                )
+            ),
+            withKey: "enemyTexture"
+        )
+    }
+
+    private func animateCursedHoundHit() {
+        guard
+            currentEnemyID == .cursedHound,
+            let sprite = enemySpriteNode
+        else {
+            return
+        }
+
+        sprite.removeAction(
+            forKey: "houndHitFlash"
+        )
+
+        sprite.color =
+            UIColor(
+                red: 0.92,
+                green: 0.28,
+                blue: 0.20,
+                alpha: 1
+            )
+
+        sprite.run(
+            .sequence(
+                [
+                    .colorize(
+                        withColorBlendFactor: 0.75,
+                        duration: 0.035
+                    ),
+                    .colorize(
+                        withColorBlendFactor: 0,
+                        duration: 0.10
+                    )
+                ]
+            ),
+            withKey: "houndHitFlash"
         )
     }
 
@@ -2066,6 +2201,10 @@ final class CombatScene: SKScene {
                 size.height / 780
             )
         )
+
+        if enemy.id == .cursedHound {
+            startCursedHoundIdleAnimation()
+        }
     }
 
     // MARK: - Spawn
@@ -2080,7 +2219,6 @@ final class CombatScene: SKScene {
         enemyNode.isHidden = false
         enemyNode.removeAllActions()
 
-        // Reset properties changed by previous death animation.
         enemyNode.zRotation = 0
         enemyNode.alpha = 0
 
@@ -2095,6 +2233,10 @@ final class CombatScene: SKScene {
                 size.height / 780
             )
         )
+
+        if enemy.id == .cursedHound {
+            startCursedHoundRunAnimation()
+        }
 
         let finalPosition =
             enemyBattlePosition()
@@ -3018,6 +3160,8 @@ final class CombatScene: SKScene {
     ) {
         if enemy.id == .graveSkeleton {
             animateGraveSkeletonHit()
+        } else if enemy.id == .cursedHound {
+            animateCursedHoundHit()
         }
 
         enemyNode.removeAction(
@@ -3091,18 +3235,24 @@ final class CombatScene: SKScene {
             )
 
         case .cursedHound:
+            enemySpriteNode?.removeAction(
+                forKey: "enemyTexture"
+            )
+
             enemyNode.run(
                 .group(
                     [
                         .moveBy(
-                            x: 16,
+                            x: 18,
                             y: -18,
-                            duration:
-                                0.55
+                            duration: 0.55
+                        ),
+                        .rotate(
+                            byAngle: -0.18,
+                            duration: 0.55
                         ),
                         .fadeOut(
-                            withDuration:
-                                0.65
+                            withDuration: 0.65
                         )
                     ]
                 )
